@@ -34,10 +34,15 @@ jobs:
           sleep 3
           curl --fail http://127.0.0.1:8000/health
 
-      - name: Setup ngrok
-        uses: ngrok/ngrok-github-action@v1
-        with:
-          ngrok-authtoken: ${{ secrets.NGROK_TOKEN }}
+      - name: Install and configure ngrok
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
+        run: |
+          curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz
+          tar -xzf ngrok.tgz
+          sudo mv ngrok /usr/local/bin/ngrok
+          ngrok version
+          ngrok config add-authtoken "$NGROK_TOKEN"
 
       - name: Start ngrok tunnel
         run: |
