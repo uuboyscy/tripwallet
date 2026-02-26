@@ -412,7 +412,7 @@ def list_members(trip_id: UUID, user: User = Depends(current_user)) -> list[Memb
     return [MemberResponse(user_id=m.user_id, role=m.role, nickname_in_trip=m.nickname_in_trip) for m in trip_members[trip_id]]
 
 
-@app.delete("/trips/{trip_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete("/trips/{trip_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 def remove_member(trip_id: UUID, user_id: UUID, user: User = Depends(current_user)) -> None:
     ensure_owner(trip_id, user.id)
     trip = trips.get(trip_id)
@@ -539,6 +539,7 @@ def update_expense(
 @app.delete(
     "/trips/{trip_id}/expenses/{expense_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
 )
 def delete_expense(trip_id: UUID, expense_id: UUID, user: User = Depends(current_user)) -> None:
     ensure_membership(trip_id, user.id)
