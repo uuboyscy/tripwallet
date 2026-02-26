@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 app = FastAPI(title="TripWallet API", version="0.2.0")
@@ -256,6 +257,17 @@ def serialize_trip(trip: Trip) -> TripResponse:
 def normalize_currency(currency: str) -> str:
     return currency.upper()
 
+
+
+
+@app.get("/", include_in_schema=False)
+def root() -> dict[str, str]:
+    return {"service": "tripwallet", "ui": "/ui", "docs": "/docs"}
+
+
+@app.get("/ui", include_in_schema=False)
+def ui() -> FileResponse:
+    return FileResponse("app/static/ui.html")
 
 @app.get("/health")
 def health() -> dict[str, str]:

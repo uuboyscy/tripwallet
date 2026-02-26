@@ -71,3 +71,9 @@ def test_trip_flow_and_permissions() -> None:
     body = analytics_resp.json()
     assert body["total_spending_in_base"] == "1500"
     assert body["total_spending_by_category"]["food"] == "1500"
+
+
+def test_ui_page_available() -> None:
+    response = client.get('/ui')
+    assert response.status_code == 200
+    assert 'TripWallet MVP UI' in response.text

@@ -1,16 +1,20 @@
 # TripWallet
 
-TripWallet is a lightweight, trip-based, multi-currency expense sharing backend.
+TripWallet is a lightweight trip-based expense sharing app MVP with:
+- FastAPI backend API
+- Built-in web UI at `/ui` for manual end-to-end use
+- Multi-currency expense support with base-currency analytics
 
-## Implemented (current)
-- JWT authentication (`/auth/signup`, `/auth/login`, `/me`)
-- Trip management (`/trips`, `/trips/{trip_id}`)
-- Invite code workflow (`/trips/{trip_id}/invite`, `/trips/join`)
-- Member listing/removal (`/trips/{trip_id}/members`)
-- Expense CRUD with multi-currency conversion and `amount_in_base`
-- Analytics summary endpoints:
-  - `/trips/{trip_id}/analytics/summary`
-  - `/trips/{trip_id}/analytics/me`
+## Implemented MVP
+- Auth: `POST /auth/signup`, `POST /auth/login`, `GET /me`
+- Trips: create/list/get, invite generation, join by invite code
+- Members: list and owner removal
+- Expenses: create/list/update/delete with member authorization rules
+- Analytics:
+  - `GET /trips/{trip_id}/analytics/summary`
+  - `GET /trips/{trip_id}/analytics/me`
+- UI:
+  - `GET /ui` (single-page MVP UI for auth, trips, invites, expenses, analytics)
 
 ## Run locally
 ```bash
@@ -20,30 +24,27 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Swagger docs: `http://127.0.0.1:8000/docs`
+Open:
+- API docs: `http://127.0.0.1:8000/docs`
+- MVP UI: `http://127.0.0.1:8000/ui`
 
-## API Notes
-- Auth: send `Authorization: Bearer <token>`.
-- Security:
-  - only trip members can access trip resources
-  - members can edit/delete only expenses they created
+## Security and behavior notes
+- Use `Authorization: Bearer <token>` for authenticated API calls.
+- Only trip members can access trip resources.
+- Members can edit/delete only expenses they created.
 - Multi-currency rule:
-  - if expense currency equals trip base currency, fx rate is forced to `1`
-  - otherwise `fx_rate_to_base` is required
+  - if `currency == trip.base_currency`, `fx_rate_to_base = 1`
+  - else `fx_rate_to_base` is required
 
-## GitHub Action: manual public URL (ngrok)
-Workflow file: `.github/workflows/mobile-preview.yml`
+## GitHub Action: manual public URL via ngrok
+Workflow: `.github/workflows/mobile-preview.yml`
 
-What it does when manually triggered:
-1. installs dependencies
-2. starts the FastAPI app on `:8000`
-3. configures ngrok from repository secret `NGROK_TOKEN`
-4. creates a public tunnel URL and prints it
-5. keeps the job alive until you manually cancel the workflow run
+Manual trigger behavior:
+1. install dependencies
+2. start app on `:8000`
+3. configure ngrok using repository secret `NGROK_TOKEN`
+4. print public tunnel URL(s)
+5. keep job alive until manually cancelled
 
-## Environment variables (production-ready next step)
-- `DATABASE_URL`
-- `JWT_SECRET`
-- `NEXT_PUBLIC_API_BASE_URL` (for frontend)
-
-> Current implementation uses in-memory storage for rapid MVP iteration.
+## Current architecture note
+This MVP uses in-memory storage for fast iteration. Next step is replacing in-memory stores with Postgres + ORM models/migrations.
