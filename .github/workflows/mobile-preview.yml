@@ -30,17 +30,28 @@ jobs:
 
       - name: Start app
         run: |
-          nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
-          for i in {1..30}; do
+          set -euo pipefail
+
+          nohup python -m uvicorn app.main:app --app-dir "$GITHUB_WORKSPACE" --host 127.0.0.1 --port 8000 --log-level debug > backend.log 2>&1 &
+          BACKEND_PID=$!
+
+          for i in {1..60}; do
             if curl --silent --fail http://127.0.0.1:8000/health > /dev/null; then
               echo "Backend is healthy"
               break
             fi
+
+            if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+              echo "Backend process exited before healthcheck passed. backend.log:" >&2
+              cat backend.log >&2
+              exit 1
+            fi
+
             sleep 1
           done
 
           if ! curl --silent --fail http://127.0.0.1:8000/health > /dev/null; then
-            echo "Backend failed to start. backend.log:" >&2
+            echo "Backend failed to become healthy in time. backend.log:" >&2
             cat backend.log >&2
             exit 1
           fi
