@@ -14,7 +14,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -34,19 +34,10 @@ jobs:
           sleep 3
           curl --fail http://127.0.0.1:8000/health
 
-      - name: Install ngrok
-        run: |
-          curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
-            | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
-            | sudo tee /etc/apt/sources.list.d/ngrok.list
-          sudo apt update
-          sudo apt install ngrok
-
-      - name: Configure ngrok token
-        env:
-          NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
-        run: ngrok config add-authtoken "$NGROK_TOKEN"
+      - name: Setup ngrok
+        uses: ngrok/ngrok-action@v1
+        with:
+          ngrok-authtoken: ${{ secrets.NGROK_TOKEN }}
 
       - name: Start ngrok tunnel
         run: |
@@ -54,18 +45,7 @@ jobs:
           sleep 5
           curl --fail http://127.0.0.1:4040/api/tunnels > tunnels.json
           echo "Public URL(s):"
-          python - <<'PY'
-import json
-
-with open("tunnels.json", "r", encoding="utf-8") as file:
-    tunnels = json.load(file).get("tunnels", [])
-
-if not tunnels:
-    raise SystemExit("No ngrok tunnel was created")
-
-for tunnel in tunnels:
-    print(f"- {tunnel.get('public_url')}")
-PY
+          python -c "import json; t=json.load(open('tunnels.json')).get('tunnels', []); [print('- ' + x.get('public_url','')) for x in t]; (_ for _ in ()).throw(SystemExit('No ngrok tunnel was created')) if not t else None"
 
       - name: Keep alive until manually cancelled
         run: |
