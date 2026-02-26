@@ -35,7 +35,7 @@ jobs:
           curl --fail http://127.0.0.1:8000/health
 
       - name: Setup ngrok
-        uses: ngrok/ngrok-action@v1
+        uses: ngrok/ngrok-github-action@v1
         with:
           ngrok-authtoken: ${{ secrets.NGROK_TOKEN }}
 
