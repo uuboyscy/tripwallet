@@ -52,8 +52,10 @@ jobs:
           set -euo pipefail
           mkdir -p "$HOME/.local/bin"
 
-          if curl --fail --location --silent --show-error https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz; then
-            echo "Downloaded ngrok from Equinox CDN"
+          if curl --fail --location --silent --show-error https://ngrok-agent.s3.amazonaws.com/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz; then
+            echo "Downloaded ngrok from AWS distribution"
+          elif curl --fail --location --silent --show-error https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz; then
+            echo "Downloaded ngrok from Equinox CDN fallback"
           elif curl --fail --location --silent --show-error https://github.com/ngrok/ngrok/releases/latest/download/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz; then
             echo "Downloaded ngrok from GitHub Releases fallback"
           else
@@ -62,8 +64,14 @@ jobs:
           fi
 
           tar -xzf ngrok.tgz
-          chmod +x ngrok
-          mv ngrok "$HOME/.local/bin/ngrok"
+          NGROK_BINARY="$(find . -maxdepth 3 -type f -name ngrok | head -n 1)"
+          if [ -z "$NGROK_BINARY" ]; then
+            echo "ngrok binary was not found in extracted archive" >&2
+            exit 1
+          fi
+
+          chmod +x "$NGROK_BINARY"
+          mv "$NGROK_BINARY" "$HOME/.local/bin/ngrok"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
           "$HOME/.local/bin/ngrok" version
