@@ -412,8 +412,8 @@ def list_members(trip_id: UUID, user: User = Depends(current_user)) -> list[Memb
     return [MemberResponse(user_id=m.user_id, role=m.role, nickname_in_trip=m.nickname_in_trip) for m in trip_members[trip_id]]
 
 
-@app.delete("/trips/{trip_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
-def remove_member(trip_id: UUID, user_id: UUID, user: User = Depends(current_user)) -> Response:
+@app.delete("/trips/{trip_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_member(trip_id: UUID, user_id: UUID, user: User = Depends(current_user)) -> None:
     ensure_owner(trip_id, user.id)
     trip = trips.get(trip_id)
     if not trip:
@@ -424,7 +424,7 @@ def remove_member(trip_id: UUID, user_id: UUID, user: User = Depends(current_use
     members = trip_members[trip_id]
     new_members = [m for m in members if m.user_id != user_id]
     trip_members[trip_id] = new_members
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return None
 
 
 @app.post("/trips/{trip_id}/expenses", response_model=ExpenseResponse, status_code=status.HTTP_201_CREATED)
@@ -539,7 +539,6 @@ def update_expense(
 @app.delete(
     "/trips/{trip_id}/expenses/{expense_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    response_class=Response,
 )
 def delete_expense(trip_id: UUID, expense_id: UUID, user: User = Depends(current_user)) -> None:
     ensure_membership(trip_id, user.id)
@@ -549,7 +548,7 @@ def delete_expense(trip_id: UUID, expense_id: UUID, user: User = Depends(current
             if item.created_by_user_id != user.id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete others' expenses")
             del trip_expenses[idx]
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
+            return None
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found")
 
 

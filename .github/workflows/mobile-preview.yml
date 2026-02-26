@@ -29,18 +29,33 @@ jobs:
           fi
 
       - name: Start app
+        working-directory: ${{ github.workspace }}
         run: |
-          nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
-          for i in {1..30}; do
+          set -euo pipefail
+
+          echo "Running from: $(pwd)"
+          python -V
+
+          nohup python -m uvicorn main:app --app-dir app --host 0.0.0.0 --port 8000 --log-level debug > backend.log 2>&1 &
+          BACKEND_PID=$!
+
+          for i in {1..60}; do
             if curl --silent --fail http://127.0.0.1:8000/health > /dev/null; then
               echo "Backend is healthy"
               break
             fi
+
+            if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+              echo "Backend process exited before healthcheck passed. backend.log:" >&2
+              cat backend.log >&2
+              exit 1
+            fi
+
             sleep 1
           done
 
           if ! curl --silent --fail http://127.0.0.1:8000/health > /dev/null; then
-            echo "Backend failed to start. backend.log:" >&2
+            echo "Backend failed to become healthy in time. backend.log:" >&2
             cat backend.log >&2
             exit 1
           fi
@@ -52,8 +67,10 @@ jobs:
           set -euo pipefail
           mkdir -p "$HOME/.local/bin"
 
-          if curl --fail --location --silent --show-error https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz; then
-            echo "Downloaded ngrok from Equinox CDN"
+          if curl --fail --location --silent --show-error https://ngrok-agent.s3.amazonaws.com/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz; then
+            echo "Downloaded ngrok from AWS distribution"
+          elif curl --fail --location --silent --show-error https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz; then
+            echo "Downloaded ngrok from Equinox CDN fallback"
           elif curl --fail --location --silent --show-error https://github.com/ngrok/ngrok/releases/latest/download/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz; then
             echo "Downloaded ngrok from GitHub Releases fallback"
           else
@@ -62,8 +79,14 @@ jobs:
           fi
 
           tar -xzf ngrok.tgz
-          chmod +x ngrok
-          mv ngrok "$HOME/.local/bin/ngrok"
+          NGROK_BINARY="$(find . -maxdepth 3 -type f -name ngrok | head -n 1)"
+          if [ -z "$NGROK_BINARY" ]; then
+            echo "ngrok binary was not found in extracted archive" >&2
+            exit 1
+          fi
+
+          chmod +x "$NGROK_BINARY"
+          mv "$NGROK_BINARY" "$HOME/.local/bin/ngrok"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
           "$HOME/.local/bin/ngrok" version
