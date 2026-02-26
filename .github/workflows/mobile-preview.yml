@@ -29,12 +29,14 @@ jobs:
           fi
 
       - name: Start app
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
 
-          PYTHONPATH="$GITHUB_WORKSPACE" python -c "from app.main import app; print('App import check passed')"
+          echo "Running from: $(pwd)"
+          python -V
 
-          nohup env PYTHONPATH="$GITHUB_WORKSPACE" python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level debug > backend.log 2>&1 &
+          nohup python -m uvicorn main:app --app-dir app --host 0.0.0.0 --port 8000 --log-level debug > backend.log 2>&1 &
           BACKEND_PID=$!
 
           for i in {1..60}; do
