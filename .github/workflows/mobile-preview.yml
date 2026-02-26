@@ -1,0 +1,56 @@
+name: Mobile Preview (Manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Validate NGROK_TOKEN secret
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
+        run: |
+          if [ -z "$NGROK_TOKEN" ]; then
+            echo "NGROK_TOKEN secret is not configured." >&2
+            exit 1
+          fi
+
+      - name: Start app
+        run: |
+          nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          sleep 3
+          curl --fail http://127.0.0.1:8000/health
+
+      - name: Setup ngrok
+        uses: ngrok/ngrok-action@v1
+        with:
+          ngrok-authtoken: ${{ secrets.NGROK_TOKEN }}
+
+      - name: Start ngrok tunnel
+        run: |
+          nohup ngrok http 8000 --log=stdout > ngrok.log 2>&1 &
+          sleep 5
+          curl --fail http://127.0.0.1:4040/api/tunnels > tunnels.json
+          echo "Public URL(s):"
+          python -c "import json; t=json.load(open('tunnels.json')).get('tunnels', []); [print('- ' + x.get('public_url','')) for x in t]; (_ for _ in ()).throw(SystemExit('No ngrok tunnel was created')) if not t else None"
+
+      - name: Keep alive until manually cancelled
+        run: |
+          echo "Workflow is running for manual/mobile testing."
+          echo "Stop it by cancelling this workflow run in GitHub Actions."
+          while true; do
+            sleep 60
+          done
