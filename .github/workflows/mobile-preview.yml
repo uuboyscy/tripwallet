@@ -49,11 +49,25 @@ jobs:
         env:
           NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
         run: |
-          curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+
+          if curl --fail --location --silent --show-error https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz; then
+            echo "Downloaded ngrok from Equinox CDN"
+          elif curl --fail --location --silent --show-error https://github.com/ngrok/ngrok/releases/latest/download/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz; then
+            echo "Downloaded ngrok from GitHub Releases fallback"
+          else
+            echo "Failed to download ngrok from all known sources" >&2
+            exit 1
+          fi
+
           tar -xzf ngrok.tgz
-          sudo mv ngrok /usr/local/bin/ngrok
-          ngrok version
-          ngrok config add-authtoken "$NGROK_TOKEN"
+          chmod +x ngrok
+          mv ngrok "$HOME/.local/bin/ngrok"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+          "$HOME/.local/bin/ngrok" version
+          "$HOME/.local/bin/ngrok" config add-authtoken "$NGROK_TOKEN"
 
       - name: Start ngrok tunnel
         run: |
