@@ -536,7 +536,11 @@ def update_expense(
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found")
 
 
-@app.delete("/trips/{trip_id}/expenses/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete(
+    "/trips/{trip_id}/expenses/{expense_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_expense(trip_id: UUID, expense_id: UUID, user: User = Depends(current_user)) -> None:
     ensure_membership(trip_id, user.id)
     trip_expenses = expenses.get(trip_id, [])
@@ -545,7 +549,7 @@ def delete_expense(trip_id: UUID, expense_id: UUID, user: User = Depends(current
             if item.created_by_user_id != user.id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete others' expenses")
             del trip_expenses[idx]
-            return
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found")
 
 
