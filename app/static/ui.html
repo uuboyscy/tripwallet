@@ -89,6 +89,13 @@
         <input id="expense-fx" placeholder="FX to base (if needed)" type="number" step="0.0001" />
         <input id="expense-category" placeholder="Category" value="food" />
         <input id="expense-time" type="datetime-local" />
+        <select id="expense-owner"></select>
+        <select id="split-mode" onchange="renderSplitFields()">
+          <option value="equal">Split equally</option>
+          <option value="custom">Split with custom amount</option>
+        </select>
+        <div id="split-equal-members"></div>
+        <textarea id="split-custom" class="hidden" placeholder='Custom split JSON, e.g. {"uuid-1": 120, "uuid-2": 80}'></textarea>
         <textarea id="expense-note" placeholder="Note"></textarea>
       </div>
       <button onclick="createExpense()">Create expense</button>
@@ -111,7 +118,7 @@
   </div>
 
   <script>
-    const state = { token: localStorage.getItem('tripwallet_token') || '', trips: [] };
+    const state = { token: localStorage.getItem('tripwallet_token') || '', trips: [], members: [], me: null };
 
     function log(msg) {
       const el = document.getElementById('logs');
@@ -144,6 +151,37 @@
         hour: '2-digit',
         minute: '2-digit',
       }).format(date);
+    }
+
+
+    function renderOwnerOptions() {
+      const select = document.getElementById('expense-owner');
+      if (!select) return;
+      select.innerHTML = state.members.map(m => `<option value="${m.user_id}">${m.display_name}</option>`).join('');
+      if (state.me) select.value = state.me.id;
+    }
+
+    function renderSplitFields() {
+      const mode = document.getElementById('split-mode').value;
+      const equalWrap = document.getElementById('split-equal-members');
+      const custom = document.getElementById('split-custom');
+      equalWrap.classList.toggle('hidden', mode !== 'equal');
+      custom.classList.toggle('hidden', mode !== 'custom');
+      equalWrap.innerHTML = state.members.map(m => `
+        <label><input type="checkbox" class="split-member" value="${m.user_id}" checked /> ${m.display_name}</label>
+      `).join('');
+    }
+
+    async function loadTripMembers(tripId) {
+      state.me = await api('/me');
+      state.members = await api(`/trips/${tripId}/members`);
+      renderOwnerOptions();
+      renderSplitFields();
+    }
+
+    function userNameById(userId) {
+      const found = state.members.find(m => m.user_id === userId);
+      return found ? found.display_name : userId;
     }
 
     async function api(path, method = 'GET', body) {
@@ -214,8 +252,9 @@
       } catch (e) { log(`Load trips failed: ${e.message}`); }
     }
 
-    function selectTrip(id) {
+    async function selectTrip(id) {
       document.getElementById('selected-trip-id').value = id;
+      await loadTripMembers(id);
       log(`Selected trip ${id}`);
     }
 
@@ -243,13 +282,22 @@
         const tripId = document.getElementById('selected-trip-id').value;
         const localValue = document.getElementById('expense-time').value;
         const iso = localValue ? new Date(localValue).toISOString() : new Date().toISOString();
+        const splitMode = document.getElementById('split-mode').value;
         const body = {
           amount: String(document.getElementById('expense-amount').value),
           currency: document.getElementById('expense-currency').value,
           category: document.getElementById('expense-category').value,
           expense_time: iso,
+          owner_user_id: document.getElementById('expense-owner').value || undefined,
+          split_mode: splitMode,
           note: document.getElementById('expense-note').value,
         };
+        const selectedMembers = Array.from(document.querySelectorAll('.split-member:checked')).map(el => el.value);
+        body.split_with_user_ids = selectedMembers;
+        if (splitMode === 'custom') {
+          const raw = document.getElementById('split-custom').value.trim();
+          body.custom_split_amounts = raw ? JSON.parse(raw) : {};
+        }
         const fx = document.getElementById('expense-fx').value;
         if (fx) body.fx_rate_to_base = String(fx);
         await api(`/trips/${tripId}/expenses`, 'POST', body);
@@ -263,8 +311,8 @@
         const tripId = document.getElementById('selected-trip-id').value;
         const items = await api(`/trips/${tripId}/expenses`);
         const table = document.getElementById('expense-table');
-        table.innerHTML = `<tr><th>time</th><th>amount</th><th>currency</th><th>base</th><th>category</th><th>note</th></tr>` +
-          items.map(i => `<tr><td>${formatDateTime(i.expense_time)}</td><td>${i.amount}</td><td>${i.currency}</td><td>${i.amount_in_base}</td><td>${i.category}</td><td>${i.note || ''}</td></tr>`).join('');
+        table.innerHTML = `<tr><th>time</th><th>amount</th><th>currency</th><th>owner</th><th>split</th><th>base</th><th>category</th><th>note</th></tr>` +
+          items.map(i => `<tr><td>${formatDateTime(i.expense_time)}</td><td>${i.amount}</td><td>${i.currency}</td><td>${userNameById(i.owner_user_id)}</td><td>${i.split_mode === 'equal' ? 'Equal: ' + i.split_with_user_ids.map(userNameById).join(', ') : JSON.stringify(i.custom_split_amounts || {})}</td><td>${i.amount_in_base}</td><td>${i.category}</td><td>${i.note || ''}</td></tr>`).join('');
         log(`Loaded ${items.length} expense(s)`);
       } catch (e) { log(`Load expenses failed: ${e.message}`); }
     }

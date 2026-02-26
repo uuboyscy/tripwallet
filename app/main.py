@@ -72,6 +72,7 @@ class Expense(BaseModel):
     id: UUID
     trip_id: UUID
     created_by_user_id: UUID
+    owner_user_id: UUID
     paid_by_user_id: UUID
     amount: Decimal
     currency: str
@@ -79,6 +80,9 @@ class Expense(BaseModel):
     amount_in_base: Decimal
     category: str
     note: str | None = None
+    split_mode: str
+    split_with_user_ids: list[UUID]
+    custom_split_amounts: dict[str, Decimal] | None = None
     expense_time: datetime
     created_at: datetime
     updated_at: datetime
@@ -140,6 +144,7 @@ class InviteResponse(BaseModel):
 class MemberResponse(BaseModel):
     user_id: UUID
     role: MemberRole
+    display_name: str
     nickname_in_trip: str | None = None
 
 
@@ -150,7 +155,11 @@ class CreateExpenseRequest(BaseModel):
     category: str
     expense_time: datetime
     paid_by_user_id: UUID | None = None
+    owner_user_id: UUID | None = None
     note: str | None = None
+    split_mode: str = Field(default="equal")
+    split_with_user_ids: list[UUID] | None = None
+    custom_split_amounts: dict[str, Decimal] | None = None
 
 
 class UpdateExpenseRequest(BaseModel):
@@ -162,13 +171,18 @@ class UpdateExpenseRequest(BaseModel):
     category: str | None = None
     expense_time: datetime | None = None
     paid_by_user_id: UUID | None = None
+    owner_user_id: UUID | None = None
     note: str | None = None
+    split_mode: str | None = None
+    split_with_user_ids: list[UUID] | None = None
+    custom_split_amounts: dict[str, Decimal] | None = None
 
 
 class ExpenseResponse(BaseModel):
     id: UUID
     trip_id: UUID
     created_by_user_id: UUID
+    owner_user_id: UUID
     paid_by_user_id: UUID
     amount: Decimal
     currency: str
@@ -176,6 +190,9 @@ class ExpenseResponse(BaseModel):
     amount_in_base: Decimal
     category: str
     note: str | None = None
+    split_mode: str
+    split_with_user_ids: list[UUID]
+    custom_split_amounts: dict[str, Decimal] | None = None
     expense_time: datetime
 
 
@@ -256,6 +273,54 @@ def serialize_trip(trip: Trip) -> TripResponse:
 
 def normalize_currency(currency: str) -> str:
     return currency.upper()
+
+
+def member_ids_for_trip(trip_id: UUID) -> set[UUID]:
+    return {member.user_id for member in trip_members.get(trip_id, [])}
+
+
+def normalize_split(
+    trip_id: UUID,
+    amount: Decimal,
+    split_mode: str,
+    split_with_user_ids: list[UUID] | None,
+    custom_split_amounts: dict[str, Decimal] | None,
+) -> tuple[str, list[UUID], dict[str, Decimal] | None]:
+    members = member_ids_for_trip(trip_id)
+
+    if split_mode not in {"equal", "custom"}:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="split_mode must be equal or custom")
+
+    chosen_members = split_with_user_ids or list(members)
+    if not chosen_members:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="split_with_user_ids cannot be empty")
+    if any(user_id not in members for user_id in chosen_members):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="split_with_user_ids must be trip members")
+
+    if split_mode == "equal":
+        return split_mode, chosen_members, None
+
+    if not custom_split_amounts:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="custom_split_amounts is required")
+
+    normalized: dict[str, Decimal] = {}
+    for user_id, value in custom_split_amounts.items():
+        uid = UUID(user_id)
+        if uid not in members:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="custom split user must be a trip member")
+        amount_value = Decimal(value)
+        if amount_value < 0:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="custom split amount must be >= 0")
+        normalized[str(uid)] = amount_value
+
+    if set(normalized.keys()) != {str(user_id) for user_id in chosen_members}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="custom split users must match split_with_user_ids",
+        )
+    if sum(normalized.values(), start=Decimal("0")) != amount:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="custom split must sum to amount")
+    return split_mode, chosen_members, normalized
 
 
 
@@ -409,7 +474,15 @@ def join_trip(payload: JoinTripRequest, user: User = Depends(current_user)) -> d
 @app.get("/trips/{trip_id}/members", response_model=list[MemberResponse])
 def list_members(trip_id: UUID, user: User = Depends(current_user)) -> list[MemberResponse]:
     ensure_membership(trip_id, user.id)
-    return [MemberResponse(user_id=m.user_id, role=m.role, nickname_in_trip=m.nickname_in_trip) for m in trip_members[trip_id]]
+    return [
+        MemberResponse(
+            user_id=m.user_id,
+            role=m.role,
+            display_name=users[m.user_id].display_name,
+            nickname_in_trip=m.nickname_in_trip,
+        )
+        for m in trip_members[trip_id]
+    ]
 
 
 @app.delete("/trips/{trip_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
@@ -445,11 +518,23 @@ def create_expense(trip_id: UUID, payload: CreateExpenseRequest, user: User = De
     payer_id = payload.paid_by_user_id or user.id
     ensure_membership(trip_id, payer_id)
 
+    owner_id = payload.owner_user_id or user.id
+    ensure_membership(trip_id, owner_id)
+
+    split_mode, split_user_ids, custom_split = normalize_split(
+        trip_id,
+        payload.amount,
+        payload.split_mode,
+        payload.split_with_user_ids,
+        payload.custom_split_amounts,
+    )
+
     amount_in_base = payload.amount * fx
     expense = Expense(
         id=uuid4(),
         trip_id=trip_id,
         created_by_user_id=user.id,
+        owner_user_id=owner_id,
         paid_by_user_id=payer_id,
         amount=payload.amount,
         currency=currency,
@@ -457,6 +542,9 @@ def create_expense(trip_id: UUID, payload: CreateExpenseRequest, user: User = De
         amount_in_base=amount_in_base,
         category=payload.category,
         note=payload.note,
+        split_mode=split_mode,
+        split_with_user_ids=split_user_ids,
+        custom_split_amounts=custom_split,
         expense_time=payload.expense_time,
         created_at=now_utc(),
         updated_at=now_utc(),
@@ -507,10 +595,12 @@ def update_expense(
     for idx, item in enumerate(trip_expenses):
         if item.id != expense_id:
             continue
-        if item.created_by_user_id != user.id:
+        updates = payload.model_dump(exclude_unset=True)
+        split_fields = {"split_mode", "split_with_user_ids", "custom_split_amounts", "owner_user_id"}
+        is_split_only_update = set(updates).issubset(split_fields)
+        if item.created_by_user_id != user.id and not is_split_only_update:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot edit others' expenses")
 
-        updates = payload.model_dump(exclude_unset=True)
         new_data = item.model_dump()
         new_data.update(updates)
 
@@ -519,12 +609,25 @@ def update_expense(
 
         if "paid_by_user_id" in updates and updates["paid_by_user_id"] is not None:
             ensure_membership(trip_id, updates["paid_by_user_id"])
+        if "owner_user_id" in updates and updates["owner_user_id"] is not None:
+            ensure_membership(trip_id, updates["owner_user_id"])
 
         currency = new_data["currency"]
         if currency == trip.base_currency:
             new_data["fx_rate_to_base"] = Decimal("1")
         elif new_data.get("fx_rate_to_base") is None:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="fx_rate_to_base is required")
+
+        split_mode, split_user_ids, custom_split = normalize_split(
+            trip_id,
+            Decimal(new_data["amount"]),
+            new_data.get("split_mode", "equal"),
+            new_data.get("split_with_user_ids"),
+            new_data.get("custom_split_amounts"),
+        )
+        new_data["split_mode"] = split_mode
+        new_data["split_with_user_ids"] = split_user_ids
+        new_data["custom_split_amounts"] = custom_split
 
         new_data["amount_in_base"] = Decimal(new_data["amount"]) * Decimal(new_data["fx_rate_to_base"])
         new_data["updated_at"] = now_utc()
