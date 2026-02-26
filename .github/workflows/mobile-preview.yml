@@ -1,0 +1,76 @@
+name: Mobile Preview (Manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Validate NGROK_TOKEN secret
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
+        run: |
+          if [ -z "$NGROK_TOKEN" ]; then
+            echo "NGROK_TOKEN secret is not configured." >&2
+            exit 1
+          fi
+
+      - name: Start app
+        run: |
+          nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          sleep 3
+          curl --fail http://127.0.0.1:8000/health
+
+      - name: Install ngrok
+        run: |
+          curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
+            | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update
+          sudo apt install ngrok
+
+      - name: Configure ngrok token
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
+        run: ngrok config add-authtoken "$NGROK_TOKEN"
+
+      - name: Start ngrok tunnel
+        run: |
+          nohup ngrok http 8000 --log=stdout > ngrok.log 2>&1 &
+          sleep 5
+          curl --fail http://127.0.0.1:4040/api/tunnels > tunnels.json
+          echo "Public URL(s):"
+          python - <<'PY'
+import json
+
+with open("tunnels.json", "r", encoding="utf-8") as file:
+    tunnels = json.load(file).get("tunnels", [])
+
+if not tunnels:
+    raise SystemExit("No ngrok tunnel was created")
+
+for tunnel in tunnels:
+    print(f"- {tunnel.get('public_url')}")
+PY
+
+      - name: Keep alive until manually cancelled
+        run: |
+          echo "Workflow is running for manual/mobile testing."
+          echo "Stop it by cancelling this workflow run in GitHub Actions."
+          while true; do
+            sleep 60
+          done
