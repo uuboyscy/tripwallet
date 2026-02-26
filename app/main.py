@@ -10,7 +10,7 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 import jwt
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -412,8 +412,8 @@ def list_members(trip_id: UUID, user: User = Depends(current_user)) -> list[Memb
     return [MemberResponse(user_id=m.user_id, role=m.role, nickname_in_trip=m.nickname_in_trip) for m in trip_members[trip_id]]
 
 
-@app.delete("/trips/{trip_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_member(trip_id: UUID, user_id: UUID, user: User = Depends(current_user)) -> None:
+@app.delete("/trips/{trip_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+def remove_member(trip_id: UUID, user_id: UUID, user: User = Depends(current_user)) -> Response:
     ensure_owner(trip_id, user.id)
     trip = trips.get(trip_id)
     if not trip:
@@ -424,6 +424,7 @@ def remove_member(trip_id: UUID, user_id: UUID, user: User = Depends(current_use
     members = trip_members[trip_id]
     new_members = [m for m in members if m.user_id != user_id]
     trip_members[trip_id] = new_members
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post("/trips/{trip_id}/expenses", response_model=ExpenseResponse, status_code=status.HTTP_201_CREATED)
