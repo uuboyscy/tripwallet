@@ -18,8 +18,12 @@
     .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; background:#eef3ff; font-size: 12px; }
     .hidden { display:none; }
     pre { background:#111827; color:#e5e7eb; padding:10px; border-radius:8px; overflow:auto; }
-    table { width: 100%; border-collapse: collapse; }
-    td,th { border-bottom: 1px solid #e6e6e6; text-align: left; padding: 8px; font-size: 14px; }
+    .notice { padding: 10px; border-radius: 8px; margin: 8px 0 12px; font-weight: 600; }
+    .notice.success { background: #e8f7ee; color: #146534; }
+    .notice.error { background: #fdebec; color: #9f1239; }
+    .table-wrap { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    td,th { border-bottom: 1px solid #e6e6e6; text-align: left; padding: 8px; font-size: 14px; word-break: break-word; }
   </style>
 </head>
 <body>
@@ -43,6 +47,7 @@
           <button onclick="login()">Login</button>
         </div>
       </div>
+      <div id="auth-notice" class="notice hidden" role="status" aria-live="polite"></div>
       <p>Current token: <span class="pill" id="token-state">none</span></p>
     </div>
 
@@ -90,7 +95,9 @@
 
       <h3>Expenses</h3>
       <button class="secondary" onclick="loadExpenses()">Load expenses</button>
-      <table id="expense-table"></table>
+      <div class="table-wrap">
+        <table id="expense-table"></table>
+      </div>
 
       <h3>Analytics Summary</h3>
       <button class="secondary" onclick="loadAnalytics()">Load analytics</button>
@@ -119,6 +126,26 @@
       document.getElementById('expense-card').classList.toggle('hidden', !token);
     }
 
+    function showAuthNotice(message, kind = 'success') {
+      const el = document.getElementById('auth-notice');
+      el.textContent = message;
+      el.classList.remove('hidden', 'success', 'error');
+      el.classList.add(kind);
+    }
+
+    function formatDateTime(value) {
+      if (!value) return '';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(date);
+    }
+
     async function api(path, method = 'GET', body) {
       const headers = { 'Content-Type': 'application/json' };
       if (state.token) headers.Authorization = `Bearer ${state.token}`;
@@ -139,7 +166,11 @@
         });
         setToken(data.access_token);
         log('Signup success');
-      } catch (e) { log(`Signup failed: ${e.message}`); }
+        showAuthNotice('Sign up complete. You are now logged in.', 'success');
+      } catch (e) {
+        log(`Signup failed: ${e.message}`);
+        showAuthNotice(`Sign up failed: ${e.message}`, 'error');
+      }
     }
 
     async function login() {
@@ -150,7 +181,11 @@
         });
         setToken(data.access_token);
         log('Login success');
-      } catch (e) { log(`Login failed: ${e.message}`); }
+        showAuthNotice('Login successful. Welcome back!', 'success');
+      } catch (e) {
+        log(`Login failed: ${e.message}`);
+        showAuthNotice(`Login failed: ${e.message}`, 'error');
+      }
     }
 
     async function createTrip() {
@@ -229,7 +264,7 @@
         const items = await api(`/trips/${tripId}/expenses`);
         const table = document.getElementById('expense-table');
         table.innerHTML = `<tr><th>time</th><th>amount</th><th>currency</th><th>base</th><th>category</th><th>note</th></tr>` +
-          items.map(i => `<tr><td>${i.expense_time}</td><td>${i.amount}</td><td>${i.currency}</td><td>${i.amount_in_base}</td><td>${i.category}</td><td>${i.note || ''}</td></tr>`).join('');
+          items.map(i => `<tr><td>${formatDateTime(i.expense_time)}</td><td>${i.amount}</td><td>${i.currency}</td><td>${i.amount_in_base}</td><td>${i.category}</td><td>${i.note || ''}</td></tr>`).join('');
         log(`Loaded ${items.length} expense(s)`);
       } catch (e) { log(`Load expenses failed: ${e.message}`); }
     }
