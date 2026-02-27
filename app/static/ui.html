@@ -30,7 +30,8 @@
     .expense-row:last-child { border-bottom: 0; }
     .expense-title { font-size: 22px; margin-bottom: 4px; color: #222; font-weight: 700; }
     .expense-subtitle { color: #777; font-size: 14px; }
-    .expense-amount { color: #c56868; font-size: 22px; white-space: nowrap; align-self: center; }
+    .expense-amount { color: #c56868; font-size: 22px; white-space: nowrap; align-self: center; text-align: right; }
+    .expense-share-label { color: #888; font-size: 12px; }
     .split-member-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; }
     .split-member-grid label { font-size: 14px; display: flex; align-items: center; gap: 4px; color: #333; }
     .detail-card { border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px; margin-top: 12px; }
@@ -223,6 +224,23 @@
       return found ? found.display_name : userId;
     }
 
+
+    function myShareAmount(order) {
+      if (!state.me) return '0';
+      const myId = state.me.id;
+      if (order.split_mode === 'custom') {
+        const custom = order.custom_split_amounts || {};
+        return String(custom[myId] ?? custom[String(myId)] ?? '0');
+      }
+
+      const participants = order.split_with_user_ids || [];
+      if (!participants.includes(myId) || participants.length === 0) return '0';
+      const total = Number(order.amount);
+      if (Number.isNaN(total)) return '0';
+      const share = total / participants.length;
+      return Number.isInteger(share) ? String(share) : share.toFixed(2);
+    }
+
     function groupedExpenses(items) {
       const map = new Map();
       const sorted = [...items].sort((a, b) => new Date(b.expense_time) - new Date(a.expense_time));
@@ -251,7 +269,7 @@
                 <div class="expense-title">${i.category || 'Untitled order'}</div>
                 <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)}</div>
               </div>
-              <div class="expense-amount">${formatMoney(i.currency, i.amount)}</div>
+              <div class="expense-amount">${formatMoney(i.currency, myShareAmount(i))}<div class="expense-share-label">your share</div></div>
             </button>
           `);
         }
