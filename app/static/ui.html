@@ -36,6 +36,7 @@
     .split-member-grid label { font-size: 14px; display: flex; align-items: center; gap: 4px; color: #333; }
     .detail-card { border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px; margin-top: 12px; }
     .field-caption { font-size: 13px; color: #666; margin-top: 6px; }
+    .hint { font-size: 12px; color: #6b7280; margin: 2px 0 8px; }
   </style>
 </head>
 <body>
@@ -69,12 +70,16 @@
         <div>
           <h3>Create trip</h3>
           <input id="trip-name" placeholder="Trip name" />
-          <input id="trip-base" placeholder="Base currency (JPY)" value="JPY" />
+          <div class="hint">Enter an easy-to-recognize trip title.</div>
+          <select id="trip-base" onchange="toggleCurrencyCustomInput('trip-base', 'trip-base-custom')"></select>
+          <input id="trip-base-custom" class="hidden" placeholder="Type custom main currency code" />
+          <div class="hint">Pick the trip main currency (final settlement currency).</div>
           <button onclick="createTrip()">Create trip</button>
         </div>
         <div>
           <h3>Join by invite code</h3>
           <input id="join-code" placeholder="Invite code" />
+          <div class="hint">Paste the invite code shared by the trip owner.</div>
           <button onclick="joinTrip()">Join</button>
         </div>
       </div>
@@ -98,8 +103,20 @@
       <div class="grid">
         <input id="expense-category" placeholder="Order name" value="food" />
         <input id="expense-amount" placeholder="Amount" type="number" step="0.01" />
-        <input id="expense-currency" placeholder="Currency" value="JPY" />
-        <input id="expense-fx" placeholder="FX to base (if needed)" type="number" step="0.0001" />
+        <div>
+          <select id="expense-currency" onchange="toggleCurrencyCustomInput('expense-currency', 'expense-currency-custom'); updateAutoFxHint()"></select>
+          <input id="expense-currency-custom" class="hidden" placeholder="Type custom original currency code" />
+          <div class="hint">Original currency that you paid in.</div>
+        </div>
+        <div>
+          <select id="expense-target-currency" onchange="toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom'); updateAutoFxHint()"></select>
+          <input id="expense-target-currency-custom" class="hidden" placeholder="Type custom target currency code" />
+          <div class="hint">Currency to convert this order into.</div>
+        </div>
+        <div>
+          <input id="expense-fx" placeholder="FX to trip main currency" type="number" step="0.0001" />
+          <div class="hint" id="fx-hint">Default uses latest known rate automatically.</div>
+        </div>
         <input id="expense-time" type="datetime-local" />
         <select id="expense-owner"></select>
         <select id="split-mode" onchange="renderSplitFields()">
@@ -109,6 +126,7 @@
         <div id="split-equal-members" class="split-member-grid"></div>
         <textarea id="split-custom" class="hidden" placeholder='Custom split JSON, e.g. {"uuid-1": 120, "uuid-2": 80}'></textarea>
         <textarea id="expense-note" placeholder="Note"></textarea>
+        <div class="hint">Optional note: what was this order for?</div>
       </div>
       <button onclick="createExpense()">Create order</button>
 
@@ -148,6 +166,9 @@
   </div>
 
   <script>
+    const KNOWN_CURRENCIES = ['TWD', 'JPY', 'EUR', 'USD', 'GBP', 'CNY'];
+    const USD_VALUE_BY_CURRENCY = { TWD: 0.031, JPY: 0.0067, EUR: 1.08, USD: 1, GBP: 1.27, CNY: 0.139 };
+
     const state = {
       token: localStorage.getItem('tripwallet_token') || '',
       trips: [],
@@ -155,6 +176,7 @@
       me: null,
       expenses: [],
       selectedExpenseId: null,
+      selectedTrip: null,
     };
 
     function log(msg) {
@@ -168,6 +190,61 @@
       document.getElementById('token-state').textContent = token ? 'set' : 'none';
       document.getElementById('trip-card').classList.toggle('hidden', !token);
       document.getElementById('expense-card').classList.toggle('hidden', !token);
+    }
+
+
+    function renderCurrencyOptions(selectId, selected = 'USD') {
+      const select = document.getElementById(selectId);
+      select.innerHTML = `
+        ${KNOWN_CURRENCIES.map(code => `<option value="${code}">${code}</option>`).join('')}
+        <option value="OTHER">Other (type manually)</option>
+      `;
+      if ([...KNOWN_CURRENCIES, 'OTHER'].includes(selected)) select.value = selected;
+    }
+
+    function toggleCurrencyCustomInput(selectId, customInputId) {
+      const select = document.getElementById(selectId);
+      const custom = document.getElementById(customInputId);
+      const isOther = select.value === 'OTHER';
+      custom.classList.toggle('hidden', !isOther);
+      if (!isOther) custom.value = '';
+    }
+
+    function getCurrencyValue(selectId, customInputId) {
+      const selectVal = document.getElementById(selectId).value;
+      if (selectVal !== 'OTHER') return selectVal;
+      return (document.getElementById(customInputId).value || '').trim().toUpperCase();
+    }
+
+    function latestFx(source, target) {
+      if (!source || !target) return null;
+      const s = USD_VALUE_BY_CURRENCY[source];
+      const t = USD_VALUE_BY_CURRENCY[target];
+      if (!s || !t) return null;
+      return s / t;
+    }
+
+    function updateAutoFxHint() {
+      const source = getCurrencyValue('expense-currency', 'expense-currency-custom');
+      const tripBase = state.selectedTrip?.base_currency;
+      const fxHint = document.getElementById('fx-hint');
+      const fxInput = document.getElementById('expense-fx');
+      const fx = latestFx(source, tripBase);
+      if (!fx || !tripBase) {
+        fxHint.textContent = 'Default uses latest known rate automatically. Unknown currencies may need manual FX.';
+        return;
+      }
+      fxHint.textContent = `Latest estimate ${source}->${tripBase}: ${fx.toFixed(6)} (editable)`;
+      if (!fxInput.value) fxInput.value = fx.toFixed(6);
+    }
+
+    function initCurrencyControls() {
+      renderCurrencyOptions('trip-base', 'USD');
+      renderCurrencyOptions('expense-currency', 'USD');
+      renderCurrencyOptions('expense-target-currency', 'USD');
+      toggleCurrencyCustomInput('trip-base', 'trip-base-custom');
+      toggleCurrencyCustomInput('expense-currency', 'expense-currency-custom');
+      toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom');
     }
 
     function showAuthNotice(message, kind = 'success') {
@@ -267,7 +344,7 @@
             <button class="expense-row" onclick="openExpenseDetail('${i.id}')">
               <div>
                 <div class="expense-title">${i.category || 'Untitled order'}</div>
-                <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)}</div>
+                <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)} (original) → ${formatMoney(i.target_currency, i.amount_in_target)}</div>
               </div>
               <div class="expense-amount">${formatMoney(i.currency, myShareAmount(i))}<div class="expense-share-label">your share</div></div>
             </button>
@@ -378,7 +455,7 @@
       try {
         await api('/trips', 'POST', {
           name: document.getElementById('trip-name').value,
-          base_currency: document.getElementById('trip-base').value,
+          base_currency: getCurrencyValue('trip-base', 'trip-base-custom'),
         });
         log('Trip created');
         loadTrips();
@@ -402,6 +479,20 @@
 
     async function selectTrip(id) {
       document.getElementById('selected-trip-id').value = id;
+      state.selectedTrip = state.trips.find(t => t.id === id) || null;
+      if (state.selectedTrip) {
+        const base = state.selectedTrip.base_currency;
+        const targetSelect = document.getElementById('expense-target-currency');
+        if (KNOWN_CURRENCIES.includes(base)) {
+          targetSelect.value = base;
+          toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom');
+        } else {
+          targetSelect.value = 'OTHER';
+          document.getElementById('expense-target-currency-custom').value = base;
+          toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom');
+        }
+      }
+      updateAutoFxHint();
       await loadTripMembers(id);
       await loadExpenses();
       log(`Selected trip ${id}`);
@@ -434,7 +525,8 @@
         const splitMode = document.getElementById('split-mode').value;
         const body = {
           amount: String(document.getElementById('expense-amount').value),
-          currency: document.getElementById('expense-currency').value,
+          currency: getCurrencyValue('expense-currency', 'expense-currency-custom'),
+          target_currency: getCurrencyValue('expense-target-currency', 'expense-target-currency-custom'),
           category: document.getElementById('expense-category').value,
           expense_time: iso,
           owner_user_id: document.getElementById('expense-owner').value || undefined,
@@ -472,6 +564,7 @@
       } catch (e) { log(`Load analytics failed: ${e.message}`); }
     }
 
+    initCurrencyControls();
     setToken(state.token);
     if (state.token) loadTrips();
   </script>
