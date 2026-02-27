@@ -10,6 +10,7 @@
     .card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
     h1,h2,h3,h4 { margin: 0 0 12px; }
     input, select, button, textarea { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
+    input[type="checkbox"] { width: auto; margin: 0 6px 0 0; }
     button { cursor: pointer; border: 0; background: #2463eb; color: #fff; border-radius: 6px; }
     button.secondary { background: #5f6b7a; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
@@ -27,12 +28,13 @@
     .expense-row { display: flex; justify-content: space-between; gap: 12px; background: #fff; border: 0; border-bottom: 1px solid #efefef; width: 100%; text-align: left; padding: 12px; }
     .expense-row:hover { background: #f8fbff; }
     .expense-row:last-child { border-bottom: 0; }
-    .expense-title { font-size: 22px; margin-bottom: 4px; }
+    .expense-title { font-size: 22px; margin-bottom: 4px; color: #222; font-weight: 700; }
     .expense-subtitle { color: #777; font-size: 14px; }
     .expense-amount { color: #c56868; font-size: 22px; white-space: nowrap; align-self: center; }
     .split-member-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; }
-    .split-member-grid label { font-size: 14px; display: flex; align-items: center; gap: 4px; }
+    .split-member-grid label { font-size: 14px; display: flex; align-items: center; gap: 4px; color: #333; }
     .detail-card { border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px; margin-top: 12px; }
+    .field-caption { font-size: 13px; color: #666; margin-top: 6px; }
   </style>
 </head>
 <body>
@@ -124,7 +126,10 @@
             <option value="equal">Split equally</option>
             <option value="custom">Split with custom amount</option>
           </select>
-          <div id="detail-split-members" class="split-member-grid"></div>
+          <div>
+            <div class="field-caption">Members who should pay for this order</div>
+            <div id="detail-split-members" class="split-member-grid"></div>
+          </div>
           <textarea id="detail-split-custom" class="hidden" placeholder='Custom split JSON, e.g. {"uuid-1": 120, "uuid-2": 80}'></textarea>
         </div>
         <button onclick="saveExpenseDetail()">Save changes</button>
@@ -184,7 +189,7 @@
     }
 
     function formatMoney(currency, amount) {
-      return `${currency}${amount}`;
+      return `${currency} ${amount}`;
     }
 
     function renderOwnerOptions() {
@@ -243,7 +248,7 @@
           chunks.push(`
             <button class="expense-row" onclick="openExpenseDetail('${i.id}')">
               <div>
-                <div class="expense-title">${i.category}</div>
+                <div class="expense-title">${i.category || 'Untitled order'}</div>
                 <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)}</div>
               </div>
               <div class="expense-amount">${formatMoney(i.currency, i.amount)}</div>
@@ -255,6 +260,13 @@
     }
 
     function openExpenseDetail(expenseId) {
+      const detailPanel = document.getElementById('order-detail');
+      if (state.selectedExpenseId === expenseId && !detailPanel.classList.contains('hidden')) {
+        state.selectedExpenseId = null;
+        detailPanel.classList.add('hidden');
+        return;
+      }
+
       const item = state.expenses.find(e => e.id === expenseId);
       if (!item) return;
       state.selectedExpenseId = expenseId;
@@ -265,7 +277,7 @@
       document.getElementById('detail-split-mode').value = item.split_mode || 'equal';
       renderDetailSplitFields(item.split_with_user_ids || []);
       document.getElementById('detail-split-custom').value = item.custom_split_amounts ? JSON.stringify(item.custom_split_amounts, null, 2) : '';
-      document.getElementById('order-detail').classList.remove('hidden');
+      detailPanel.classList.remove('hidden');
     }
 
     async function saveExpenseDetail() {
