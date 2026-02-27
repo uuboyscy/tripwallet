@@ -596,11 +596,6 @@ def update_expense(
         if item.id != expense_id:
             continue
         updates = payload.model_dump(exclude_unset=True)
-        split_fields = {"split_mode", "split_with_user_ids", "custom_split_amounts", "owner_user_id"}
-        is_split_only_update = set(updates).issubset(split_fields)
-        if item.created_by_user_id != user.id and not is_split_only_update:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot edit others' expenses")
-
         new_data = item.model_dump()
         new_data.update(updates)
 

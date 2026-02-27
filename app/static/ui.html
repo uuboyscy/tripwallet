@@ -8,7 +8,7 @@
     body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; color: #222; }
     .wrap { max-width: 1000px; margin: 0 auto; padding: 16px; }
     .card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-    h1,h2,h3 { margin: 0 0 12px; }
+    h1,h2,h3,h4 { margin: 0 0 12px; }
     input, select, button, textarea { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
     button { cursor: pointer; border: 0; background: #2463eb; color: #fff; border-radius: 6px; }
     button.secondary { background: #5f6b7a; }
@@ -21,9 +21,18 @@
     .notice { padding: 10px; border-radius: 8px; margin: 8px 0 12px; font-weight: 600; }
     .notice.success { background: #e8f7ee; color: #146534; }
     .notice.error { background: #fdebec; color: #9f1239; }
-    .table-wrap { width: 100%; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 680px; }
-    td,th { border-bottom: 1px solid #e6e6e6; text-align: left; padding: 8px; font-size: 14px; word-break: break-word; }
+
+    .expense-list { border: 1px solid #e6e6e6; border-radius: 10px; overflow: hidden; }
+    .date-divider { background: #ececec; color: #666; padding: 8px 12px; font-weight: 600; }
+    .expense-row { display: flex; justify-content: space-between; gap: 12px; background: #fff; border: 0; border-bottom: 1px solid #efefef; width: 100%; text-align: left; padding: 12px; }
+    .expense-row:hover { background: #f8fbff; }
+    .expense-row:last-child { border-bottom: 0; }
+    .expense-title { font-size: 22px; margin-bottom: 4px; }
+    .expense-subtitle { color: #777; font-size: 14px; }
+    .expense-amount { color: #c56868; font-size: 22px; white-space: nowrap; align-self: center; }
+    .split-member-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; }
+    .split-member-grid label { font-size: 14px; display: flex; align-items: center; gap: 4px; }
+    .detail-card { border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px; margin-top: 12px; }
   </style>
 </head>
 <body>
@@ -71,7 +80,7 @@
     </div>
 
     <div class="card hidden" id="expense-card">
-      <h2>3) Expenses + Analytics</h2>
+      <h2>3) Orders</h2>
       <label>Selected Trip ID</label>
       <input id="selected-trip-id" placeholder="Select a trip first" />
 
@@ -82,28 +91,43 @@
       </div>
       <div id="invite-result"></div>
 
-      <h3>Add expense</h3>
+      <h3>Add order</h3>
       <div class="grid">
+        <input id="expense-category" placeholder="Order name" value="food" />
         <input id="expense-amount" placeholder="Amount" type="number" step="0.01" />
         <input id="expense-currency" placeholder="Currency" value="JPY" />
         <input id="expense-fx" placeholder="FX to base (if needed)" type="number" step="0.0001" />
-        <input id="expense-category" placeholder="Category" value="food" />
         <input id="expense-time" type="datetime-local" />
         <select id="expense-owner"></select>
         <select id="split-mode" onchange="renderSplitFields()">
           <option value="equal">Split equally</option>
           <option value="custom">Split with custom amount</option>
         </select>
-        <div id="split-equal-members"></div>
+        <div id="split-equal-members" class="split-member-grid"></div>
         <textarea id="split-custom" class="hidden" placeholder='Custom split JSON, e.g. {"uuid-1": 120, "uuid-2": 80}'></textarea>
         <textarea id="expense-note" placeholder="Note"></textarea>
       </div>
-      <button onclick="createExpense()">Create expense</button>
+      <button onclick="createExpense()">Create order</button>
 
-      <h3>Expenses</h3>
-      <button class="secondary" onclick="loadExpenses()">Load expenses</button>
-      <div class="table-wrap">
-        <table id="expense-table"></table>
+      <h3>Order history</h3>
+      <button class="secondary" onclick="loadExpenses()">Load orders</button>
+      <div id="expense-list" class="expense-list"></div>
+
+      <div id="order-detail" class="detail-card hidden">
+        <h4>Order detail</h4>
+        <div class="grid">
+          <input id="detail-name" placeholder="Order name" />
+          <input id="detail-amount" placeholder="Amount" type="number" step="0.01" />
+          <select id="detail-owner"></select>
+          <input id="detail-time" type="datetime-local" />
+          <select id="detail-split-mode" onchange="renderDetailSplitFields()">
+            <option value="equal">Split equally</option>
+            <option value="custom">Split with custom amount</option>
+          </select>
+          <div id="detail-split-members" class="split-member-grid"></div>
+          <textarea id="detail-split-custom" class="hidden" placeholder='Custom split JSON, e.g. {"uuid-1": 120, "uuid-2": 80}'></textarea>
+        </div>
+        <button onclick="saveExpenseDetail()">Save changes</button>
       </div>
 
       <h3>Analytics Summary</h3>
@@ -118,7 +142,14 @@
   </div>
 
   <script>
-    const state = { token: localStorage.getItem('tripwallet_token') || '', trips: [], members: [], me: null };
+    const state = {
+      token: localStorage.getItem('tripwallet_token') || '',
+      trips: [],
+      members: [],
+      me: null,
+      expenses: [],
+      selectedExpenseId: null,
+    };
 
     function log(msg) {
       const el = document.getElementById('logs');
@@ -140,25 +171,27 @@
       el.classList.add(kind);
     }
 
-    function formatDateTime(value) {
-      if (!value) return '';
+    function formatDateBlock(value) {
       const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return value;
-      return new Intl.DateTimeFormat(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(date);
+      return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).format(date);
     }
 
+    function formatDateTimeInput(value) {
+      const d = new Date(value);
+      const tz = d.getTimezoneOffset();
+      const local = new Date(d.getTime() - tz * 60000);
+      return local.toISOString().slice(0, 16);
+    }
+
+    function formatMoney(currency, amount) {
+      return `${currency}${amount}`;
+    }
 
     function renderOwnerOptions() {
-      const select = document.getElementById('expense-owner');
-      if (!select) return;
-      select.innerHTML = state.members.map(m => `<option value="${m.user_id}">${m.display_name}</option>`).join('');
-      if (state.me) select.value = state.me.id;
+      const options = state.members.map(m => `<option value="${m.user_id}">${m.display_name}</option>`).join('');
+      document.getElementById('expense-owner').innerHTML = options;
+      document.getElementById('detail-owner').innerHTML = options;
+      if (state.me) document.getElementById('expense-owner').value = state.me.id;
     }
 
     function renderSplitFields() {
@@ -167,9 +200,98 @@
       const custom = document.getElementById('split-custom');
       equalWrap.classList.toggle('hidden', mode !== 'equal');
       custom.classList.toggle('hidden', mode !== 'custom');
-      equalWrap.innerHTML = state.members.map(m => `
-        <label><input type="checkbox" class="split-member" value="${m.user_id}" checked /> ${m.display_name}</label>
-      `).join('');
+      equalWrap.innerHTML = state.members.map(m => `<label><input type="checkbox" class="split-member" value="${m.user_id}" checked/>${m.display_name}</label>`).join('');
+    }
+
+    
+    function renderDetailSplitFields(selectedIds = null) {
+      const mode = document.getElementById('detail-split-mode').value;
+      const membersWrap = document.getElementById('detail-split-members');
+      const custom = document.getElementById('detail-split-custom');
+      custom.classList.toggle('hidden', mode !== 'custom');
+      const selected = new Set(selectedIds || state.members.map(m => m.user_id));
+      membersWrap.innerHTML = state.members.map(m => `<label><input type="checkbox" class="detail-split-member" value="${m.user_id}" ${selected.has(m.user_id) ? 'checked' : ''}/> ${m.display_name}</label>`).join('');
+    }
+
+    function userNameById(userId) {
+      const found = state.members.find(m => m.user_id === userId);
+      return found ? found.display_name : userId;
+    }
+
+    function groupedExpenses(items) {
+      const map = new Map();
+      const sorted = [...items].sort((a, b) => new Date(b.expense_time) - new Date(a.expense_time));
+      for (const item of sorted) {
+        const key = new Date(item.expense_time).toISOString().slice(0, 10);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(item);
+      }
+      return map;
+    }
+
+    function renderExpenseList() {
+      const wrap = document.getElementById('expense-list');
+      if (!state.expenses.length) {
+        wrap.innerHTML = '<div class="date-divider">No orders yet.</div>';
+        return;
+      }
+      const groups = groupedExpenses(state.expenses);
+      const chunks = [];
+      for (const [dateKey, items] of groups.entries()) {
+        chunks.push(`<div class="date-divider">${formatDateBlock(dateKey)}</div>`);
+        for (const i of items) {
+          chunks.push(`
+            <button class="expense-row" onclick="openExpenseDetail('${i.id}')">
+              <div>
+                <div class="expense-title">${i.category}</div>
+                <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)}</div>
+              </div>
+              <div class="expense-amount">${formatMoney(i.currency, i.amount)}</div>
+            </button>
+          `);
+        }
+      }
+      wrap.innerHTML = chunks.join('');
+    }
+
+    function openExpenseDetail(expenseId) {
+      const item = state.expenses.find(e => e.id === expenseId);
+      if (!item) return;
+      state.selectedExpenseId = expenseId;
+      document.getElementById('detail-name').value = item.category;
+      document.getElementById('detail-amount').value = item.amount;
+      document.getElementById('detail-owner').value = item.owner_user_id;
+      document.getElementById('detail-time').value = formatDateTimeInput(item.expense_time);
+      document.getElementById('detail-split-mode').value = item.split_mode || 'equal';
+      renderDetailSplitFields(item.split_with_user_ids || []);
+      document.getElementById('detail-split-custom').value = item.custom_split_amounts ? JSON.stringify(item.custom_split_amounts, null, 2) : '';
+      document.getElementById('order-detail').classList.remove('hidden');
+    }
+
+    async function saveExpenseDetail() {
+      try {
+        if (!state.selectedExpenseId) return;
+        const tripId = document.getElementById('selected-trip-id').value;
+        const localValue = document.getElementById('detail-time').value;
+        const splitMode = document.getElementById('detail-split-mode').value;
+        const body = {
+          category: document.getElementById('detail-name').value,
+          amount: String(document.getElementById('detail-amount').value),
+          owner_user_id: document.getElementById('detail-owner').value,
+          expense_time: new Date(localValue).toISOString(),
+          split_mode: splitMode,
+          split_with_user_ids: Array.from(document.querySelectorAll('.detail-split-member:checked')).map(el => el.value),
+        };
+        if (splitMode === 'custom') {
+          const raw = document.getElementById('detail-split-custom').value.trim();
+          body.custom_split_amounts = raw ? JSON.parse(raw) : {};
+        }
+        await api(`/trips/${tripId}/expenses/${state.selectedExpenseId}`, 'PATCH', body);
+        log('Order updated');
+        await loadExpenses();
+      } catch (e) {
+        log(`Update order failed: ${e.message}`);
+      }
     }
 
     async function loadTripMembers(tripId) {
@@ -177,11 +299,7 @@
       state.members = await api(`/trips/${tripId}/members`);
       renderOwnerOptions();
       renderSplitFields();
-    }
-
-    function userNameById(userId) {
-      const found = state.members.find(m => m.user_id === userId);
-      return found ? found.display_name : userId;
+      renderDetailSplitFields();
     }
 
     async function api(path, method = 'GET', body) {
@@ -255,6 +373,7 @@
     async function selectTrip(id) {
       document.getElementById('selected-trip-id').value = id;
       await loadTripMembers(id);
+      await loadExpenses();
       log(`Selected trip ${id}`);
     }
 
@@ -292,8 +411,7 @@
           split_mode: splitMode,
           note: document.getElementById('expense-note').value,
         };
-        const selectedMembers = Array.from(document.querySelectorAll('.split-member:checked')).map(el => el.value);
-        body.split_with_user_ids = selectedMembers;
+        body.split_with_user_ids = Array.from(document.querySelectorAll('.split-member:checked')).map(el => el.value);
         if (splitMode === 'custom') {
           const raw = document.getElementById('split-custom').value.trim();
           body.custom_split_amounts = raw ? JSON.parse(raw) : {};
@@ -301,20 +419,18 @@
         const fx = document.getElementById('expense-fx').value;
         if (fx) body.fx_rate_to_base = String(fx);
         await api(`/trips/${tripId}/expenses`, 'POST', body);
-        log('Expense created');
-        loadExpenses();
-      } catch (e) { log(`Create expense failed: ${e.message}`); }
+        log('Order created');
+        await loadExpenses();
+      } catch (e) { log(`Create order failed: ${e.message}`); }
     }
 
     async function loadExpenses() {
       try {
         const tripId = document.getElementById('selected-trip-id').value;
-        const items = await api(`/trips/${tripId}/expenses`);
-        const table = document.getElementById('expense-table');
-        table.innerHTML = `<tr><th>time</th><th>amount</th><th>currency</th><th>owner</th><th>split</th><th>base</th><th>category</th><th>note</th></tr>` +
-          items.map(i => `<tr><td>${formatDateTime(i.expense_time)}</td><td>${i.amount}</td><td>${i.currency}</td><td>${userNameById(i.owner_user_id)}</td><td>${i.split_mode === 'equal' ? 'Equal: ' + i.split_with_user_ids.map(userNameById).join(', ') : JSON.stringify(i.custom_split_amounts || {})}</td><td>${i.amount_in_base}</td><td>${i.category}</td><td>${i.note || ''}</td></tr>`).join('');
-        log(`Loaded ${items.length} expense(s)`);
-      } catch (e) { log(`Load expenses failed: ${e.message}`); }
+        state.expenses = await api(`/trips/${tripId}/expenses`);
+        renderExpenseList();
+        log(`Loaded ${state.expenses.length} order(s)`);
+      } catch (e) { log(`Load orders failed: ${e.message}`); }
     }
 
     async function loadAnalytics() {
