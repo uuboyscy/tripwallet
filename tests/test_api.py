@@ -77,3 +77,43 @@ def test_ui_page_available() -> None:
     response = client.get('/ui')
     assert response.status_code == 200
     assert 'TripWallet MVP UI' in response.text
+
+
+def test_expense_uses_latest_fx_and_target_currency() -> None:
+    token = signup("fx@example.com", "FX User")
+
+    trip_resp = client.post(
+        "/trips",
+        headers=auth_header(token),
+        json={"name": "Taipei", "base_currency": "TWD"},
+    )
+    assert trip_resp.status_code == 200
+    trip_id = trip_resp.json()["id"]
+
+    expense_resp = client.post(
+        f"/trips/{trip_id}/expenses",
+        headers=auth_header(token),
+        json={
+            "amount": "100",
+            "currency": "USD",
+            "target_currency": "JPY",
+            "category": "transport",
+            "expense_time": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    assert expense_resp.status_code == 201
+    body = expense_resp.json()
+    assert body["target_currency"] == "JPY"
+    assert body["currency"] == "USD"
+    assert body["fx_rate_to_base"] == "32.25806451612903225806451613"
+    assert body["fx_rate_to_target"] == "149.2537313432835820895522388"
+
+
+def test_default_testing_accounts_can_login() -> None:
+    user1 = client.post("/auth/login", json={"email": "user1@example.com", "password": "123456"})
+    assert user1.status_code == 200
+    assert user1.json()["access_token"]
+
+    user2 = client.post("/auth/login", json={"email": "user2@example.com", "password": "123456"})
+    assert user2.status_code == 200
+    assert user2.json()["access_token"]

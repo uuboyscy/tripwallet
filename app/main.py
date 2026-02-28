@@ -19,6 +19,27 @@ app = FastAPI(title="TripWallet API", version="0.2.0")
 JWT_SECRET = "dev-secret-change-me"
 JWT_ALGO = "HS256"
 
+CURRENCY_ALIASES = {
+    "EU": "EUR",
+    "POUND": "GBP",
+    "RMB": "CNY",
+}
+
+# Approximate market rates in USD for 1 unit of each currency.
+USD_VALUE_BY_CURRENCY: dict[str, Decimal] = {
+    "USD": Decimal("1"),
+    "EUR": Decimal("1.08"),
+    "GBP": Decimal("1.27"),
+    "JPY": Decimal("0.0067"),
+    "TWD": Decimal("0.031"),
+    "CNY": Decimal("0.139"),
+}
+
+DEFAULT_TEST_ACCOUNTS = (
+    {"email": "user1@example.com", "display_name": "user1", "password": "123456"},
+    {"email": "user2@example.com", "display_name": "user2", "password": "123456"},
+)
+
 
 class TripStatus(str, Enum):
     active = "active"
@@ -76,6 +97,9 @@ class Expense(BaseModel):
     paid_by_user_id: UUID
     amount: Decimal
     currency: str
+    target_currency: str
+    fx_rate_to_target: Decimal
+    amount_in_target: Decimal
     fx_rate_to_base: Decimal
     amount_in_base: Decimal
     category: str
@@ -115,7 +139,7 @@ class CreateTripRequest(BaseModel):
     name: str
     start_date: date | None = None
     end_date: date | None = None
-    base_currency: str = Field(min_length=3, max_length=3)
+    base_currency: str = Field(min_length=2, max_length=8)
 
 
 class TripResponse(BaseModel):
@@ -150,7 +174,9 @@ class MemberResponse(BaseModel):
 
 class CreateExpenseRequest(BaseModel):
     amount: Decimal = Field(gt=0)
-    currency: str = Field(min_length=3, max_length=3)
+    currency: str = Field(min_length=2, max_length=8)
+    target_currency: str | None = Field(default=None, min_length=2, max_length=8)
+    fx_rate_to_target: Decimal | None = Field(default=None, gt=0)
     fx_rate_to_base: Decimal | None = Field(default=None, gt=0)
     category: str
     expense_time: datetime
@@ -166,7 +192,9 @@ class UpdateExpenseRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     amount: Decimal | None = Field(default=None, gt=0)
-    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    currency: str | None = Field(default=None, min_length=2, max_length=8)
+    target_currency: str | None = Field(default=None, min_length=2, max_length=8)
+    fx_rate_to_target: Decimal | None = Field(default=None, gt=0)
     fx_rate_to_base: Decimal | None = Field(default=None, gt=0)
     category: str | None = None
     expense_time: datetime | None = None
@@ -186,6 +214,9 @@ class ExpenseResponse(BaseModel):
     paid_by_user_id: UUID
     amount: Decimal
     currency: str
+    target_currency: str
+    fx_rate_to_target: Decimal
+    amount_in_target: Decimal
     fx_rate_to_base: Decimal
     amount_in_base: Decimal
     category: str
@@ -210,6 +241,15 @@ trip_members: dict[UUID, list[TripMember]] = defaultdict(list)
 trip_invites: dict[UUID, TripInvite] = {}
 invite_index: dict[str, UUID] = {}
 expenses: dict[UUID, list[Expense]] = defaultdict(list)
+
+
+def ensure_default_test_accounts() -> None:
+    for item in DEFAULT_TEST_ACCOUNTS:
+        email = item["email"].lower()
+        if email in users_by_email:
+            continue
+        create_user(email=email, password=item["password"], display_name=item["display_name"])
+
 
 
 def now_utc() -> datetime:
@@ -271,8 +311,33 @@ def serialize_trip(trip: Trip) -> TripResponse:
     return TripResponse(**trip.model_dump())
 
 
+def create_user(email: str, password: str, display_name: str) -> User:
+    user = User(
+        id=uuid4(),
+        email=email,
+        password_hash=hash_password(password),
+        display_name=display_name,
+        created_at=datetime.now(UTC),
+    )
+    users[user.id] = user
+    users_by_email[email] = user.id
+    return user
+
+
+ensure_default_test_accounts()
+
+
 def normalize_currency(currency: str) -> str:
-    return currency.upper()
+    upper = currency.upper().strip()
+    return CURRENCY_ALIASES.get(upper, upper)
+
+
+def latest_fx_rate(source_currency: str, target_currency: str) -> Decimal | None:
+    source_to_usd = USD_VALUE_BY_CURRENCY.get(source_currency)
+    target_to_usd = USD_VALUE_BY_CURRENCY.get(target_currency)
+    if source_to_usd is None or target_to_usd is None:
+        return None
+    return source_to_usd / target_to_usd
 
 
 def member_ids_for_trip(trip_id: UUID) -> set[UUID]:
@@ -345,15 +410,7 @@ def signup(payload: SignupRequest) -> AuthResponse:
     if email in users_by_email:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    user = User(
-        id=uuid4(),
-        email=email,
-        password_hash=hash_password(payload.password),
-        display_name=payload.display_name,
-        created_at=now_utc(),
-    )
-    users[user.id] = user
-    users_by_email[email] = user.id
+    user = create_user(email=email, password=payload.password, display_name=payload.display_name)
     return AuthResponse(access_token=issue_token(user))
 
 
@@ -508,12 +565,27 @@ def create_expense(trip_id: UUID, payload: CreateExpenseRequest, user: User = De
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
 
     currency = normalize_currency(payload.currency)
+    target_currency = normalize_currency(payload.target_currency or trip.base_currency)
+
+    if currency == target_currency:
+        fx_to_target = Decimal("1")
+    elif payload.fx_rate_to_target is not None:
+        fx_to_target = payload.fx_rate_to_target
+    else:
+        auto_fx_target = latest_fx_rate(currency, target_currency)
+        if auto_fx_target is None:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="fx_rate_to_target is required")
+        fx_to_target = auto_fx_target
+
     if currency == trip.base_currency:
         fx = Decimal("1")
-    else:
-        if payload.fx_rate_to_base is None:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="fx_rate_to_base is required")
+    elif payload.fx_rate_to_base is not None:
         fx = payload.fx_rate_to_base
+    else:
+        auto_fx_base = latest_fx_rate(currency, trip.base_currency)
+        if auto_fx_base is None:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="fx_rate_to_base is required")
+        fx = auto_fx_base
 
     payer_id = payload.paid_by_user_id or user.id
     ensure_membership(trip_id, payer_id)
@@ -530,6 +602,7 @@ def create_expense(trip_id: UUID, payload: CreateExpenseRequest, user: User = De
     )
 
     amount_in_base = payload.amount * fx
+    amount_in_target = payload.amount * fx_to_target
     expense = Expense(
         id=uuid4(),
         trip_id=trip_id,
@@ -538,6 +611,9 @@ def create_expense(trip_id: UUID, payload: CreateExpenseRequest, user: User = De
         paid_by_user_id=payer_id,
         amount=payload.amount,
         currency=currency,
+        target_currency=target_currency,
+        fx_rate_to_target=fx_to_target,
+        amount_in_target=amount_in_target,
         fx_rate_to_base=fx,
         amount_in_base=amount_in_base,
         category=payload.category,
@@ -595,12 +671,16 @@ def update_expense(
     for idx, item in enumerate(trip_expenses):
         if item.id != expense_id:
             continue
+        if item.created_by_user_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot edit others' expenses")
         updates = payload.model_dump(exclude_unset=True)
         new_data = item.model_dump()
         new_data.update(updates)
 
         if "currency" in new_data and new_data["currency"]:
             new_data["currency"] = normalize_currency(new_data["currency"])
+        if "target_currency" in new_data and new_data["target_currency"]:
+            new_data["target_currency"] = normalize_currency(new_data["target_currency"])
 
         if "paid_by_user_id" in updates and updates["paid_by_user_id"] is not None:
             ensure_membership(trip_id, updates["paid_by_user_id"])
@@ -608,10 +688,24 @@ def update_expense(
             ensure_membership(trip_id, updates["owner_user_id"])
 
         currency = new_data["currency"]
+        target_currency = new_data.get("target_currency") or trip.base_currency
+        new_data["target_currency"] = target_currency
+
+        if currency == target_currency:
+            new_data["fx_rate_to_target"] = Decimal("1")
+        elif new_data.get("fx_rate_to_target") is None:
+            auto_fx_target = latest_fx_rate(currency, target_currency)
+            if auto_fx_target is None:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="fx_rate_to_target is required")
+            new_data["fx_rate_to_target"] = auto_fx_target
+
         if currency == trip.base_currency:
             new_data["fx_rate_to_base"] = Decimal("1")
         elif new_data.get("fx_rate_to_base") is None:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="fx_rate_to_base is required")
+            auto_fx_base = latest_fx_rate(currency, trip.base_currency)
+            if auto_fx_base is None:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="fx_rate_to_base is required")
+            new_data["fx_rate_to_base"] = auto_fx_base
 
         split_mode, split_user_ids, custom_split = normalize_split(
             trip_id,
@@ -625,6 +719,7 @@ def update_expense(
         new_data["custom_split_amounts"] = custom_split
 
         new_data["amount_in_base"] = Decimal(new_data["amount"]) * Decimal(new_data["fx_rate_to_base"])
+        new_data["amount_in_target"] = Decimal(new_data["amount"]) * Decimal(new_data["fx_rate_to_target"])
         new_data["updated_at"] = now_utc()
 
         updated = Expense(**new_data)

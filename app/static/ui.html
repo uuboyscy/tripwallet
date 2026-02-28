@@ -25,17 +25,26 @@
 
     .expense-list { border: 1px solid #e6e6e6; border-radius: 10px; overflow: hidden; }
     .date-divider { background: #ececec; color: #666; padding: 8px 12px; font-weight: 600; }
-    .expense-row { display: flex; justify-content: space-between; gap: 12px; background: #fff; border: 0; border-bottom: 1px solid #efefef; width: 100%; text-align: left; padding: 12px; }
+    .expense-row { display: flex; gap: 12px; background: #fff; border: 0; border-bottom: 1px solid #efefef; width: 100%; text-align: left; padding: 12px; align-items: flex-start; }
     .expense-row:hover { background: #f8fbff; }
     .expense-row:last-child { border-bottom: 0; }
     .expense-title { font-size: 22px; margin-bottom: 4px; color: #222; font-weight: 700; }
-    .expense-subtitle { color: #777; font-size: 14px; }
-    .expense-amount { color: #c56868; font-size: 22px; white-space: nowrap; align-self: center; text-align: right; }
+    .expense-subtitle { color: #777; font-size: 14px; word-break: break-word; }
+
+    .expense-main { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .expense-left { min-width: 0; flex: 1; }
+    .expense-amount { color: #c56868; font-size: 22px; text-align: right; min-width: 150px; max-width: 45%; word-break: break-word; }
     .expense-share-label { color: #888; font-size: 12px; }
     .split-member-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; }
     .split-member-grid label { font-size: 14px; display: flex; align-items: center; gap: 4px; color: #333; }
     .detail-card { border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px; margin-top: 12px; }
     .field-caption { font-size: 13px; color: #666; margin-top: 6px; }
+    .hint { font-size: 12px; color: #6b7280; margin: 2px 0 8px; }
+    @media (max-width: 600px) {
+      .expense-main { flex-direction: column; }
+      .expense-amount { text-align: left; min-width: 0; max-width: 100%; font-size: 20px; }
+    }
+
   </style>
 </head>
 <body>
@@ -48,14 +57,19 @@
         <div>
           <h3>Sign up</h3>
           <input id="signup-email" placeholder="Email" />
+          <div class="hint">Use a valid email address for your account.</div>
           <input id="signup-name" placeholder="Display Name" />
+          <div class="hint">Name shown to other trip members.</div>
           <input id="signup-password" placeholder="Password" type="password" />
+          <div class="hint">At least 6 characters.</div>
           <button onclick="signup()">Sign up</button>
         </div>
         <div>
           <h3>Login</h3>
           <input id="login-email" placeholder="Email" />
+          <div class="hint">Enter your registered email.</div>
           <input id="login-password" placeholder="Password" type="password" />
+          <div class="hint">Enter your account password.</div>
           <button onclick="login()">Login</button>
         </div>
       </div>
@@ -69,12 +83,16 @@
         <div>
           <h3>Create trip</h3>
           <input id="trip-name" placeholder="Trip name" />
-          <input id="trip-base" placeholder="Base currency (JPY)" value="JPY" />
+          <div class="hint">Enter an easy-to-recognize trip title.</div>
+          <select id="trip-base" onchange="toggleCurrencyCustomInput('trip-base', 'trip-base-custom')"></select>
+          <input id="trip-base-custom" class="hidden" placeholder="Type custom main currency code" />
+          <div class="hint">Pick the trip main currency (final settlement currency).</div>
           <button onclick="createTrip()">Create trip</button>
         </div>
         <div>
           <h3>Join by invite code</h3>
           <input id="join-code" placeholder="Invite code" />
+          <div class="hint">Paste the invite code shared by the trip owner.</div>
           <button onclick="joinTrip()">Join</button>
         </div>
       </div>
@@ -86,10 +104,12 @@
       <h2>3) Orders</h2>
       <label>Selected Trip ID</label>
       <input id="selected-trip-id" placeholder="Select a trip first" />
+      <div class="hint">Choose a trip from the list to load members and orders.</div>
 
       <h3>Create invite (owner)</h3>
       <div class="row">
         <input id="invite-hours" type="number" value="24" min="1" />
+        <div class="hint">Invite expiration in hours.</div>
         <button onclick="createInvite()">Generate Invite</button>
       </div>
       <div id="invite-result"></div>
@@ -97,11 +117,27 @@
       <h3>Add order</h3>
       <div class="grid">
         <input id="expense-category" placeholder="Order name" value="food" />
+        <div class="hint">Short description like food, transport, hotel.</div>
         <input id="expense-amount" placeholder="Amount" type="number" step="0.01" />
-        <input id="expense-currency" placeholder="Currency" value="JPY" />
-        <input id="expense-fx" placeholder="FX to base (if needed)" type="number" step="0.0001" />
+        <div class="hint">Amount in the original currency.</div>
+        <div>
+          <select id="expense-currency" onchange="toggleCurrencyCustomInput('expense-currency', 'expense-currency-custom'); updateAutoFxHint()"></select>
+          <input id="expense-currency-custom" class="hidden" placeholder="Type custom original currency code" />
+          <div class="hint">Original currency that you paid in.</div>
+        </div>
+        <div>
+          <select id="expense-target-currency" onchange="toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom'); updateAutoFxHint()"></select>
+          <input id="expense-target-currency-custom" class="hidden" placeholder="Type custom target currency code" />
+          <div class="hint">Currency to convert this order into.</div>
+        </div>
+        <div>
+          <input id="expense-fx" placeholder="FX rate to selected target currency" type="number" step="0.0001" />
+          <div class="hint" id="fx-hint">Default exchange rate will be shown here and can be edited.</div>
+        </div>
         <input id="expense-time" type="datetime-local" />
+        <div class="hint">When this order happened.</div>
         <select id="expense-owner"></select>
+        <div class="hint">Who owns this order record.</div>
         <select id="split-mode" onchange="renderSplitFields()">
           <option value="equal">Split equally</option>
           <option value="custom">Split with custom amount</option>
@@ -109,6 +145,7 @@
         <div id="split-equal-members" class="split-member-grid"></div>
         <textarea id="split-custom" class="hidden" placeholder='Custom split JSON, e.g. {"uuid-1": 120, "uuid-2": 80}'></textarea>
         <textarea id="expense-note" placeholder="Note"></textarea>
+        <div class="hint">Optional note: what was this order for?</div>
       </div>
       <button onclick="createExpense()">Create order</button>
 
@@ -142,12 +179,22 @@
     </div>
 
     <div class="card">
+      <h2>Testing Accounts</h2>
+      <div class="hint">Preloaded on server start for quick testing.</div>
+      <pre>user1@example.com / user1 / 123456
+user2@example.com / user2 / 123456</pre>
+    </div>
+
+    <div class="card">
       <h2>Logs</h2>
       <pre id="logs"></pre>
     </div>
   </div>
 
   <script>
+    const KNOWN_CURRENCIES = ['TWD', 'JPY', 'EUR', 'USD', 'GBP', 'CNY'];
+    const USD_VALUE_BY_CURRENCY = { TWD: 0.031, JPY: 0.0067, EUR: 1.08, USD: 1, GBP: 1.27, CNY: 0.139 };
+
     const state = {
       token: localStorage.getItem('tripwallet_token') || '',
       trips: [],
@@ -155,6 +202,7 @@
       me: null,
       expenses: [],
       selectedExpenseId: null,
+      selectedTrip: null,
     };
 
     function log(msg) {
@@ -168,6 +216,75 @@
       document.getElementById('token-state').textContent = token ? 'set' : 'none';
       document.getElementById('trip-card').classList.toggle('hidden', !token);
       document.getElementById('expense-card').classList.toggle('hidden', !token);
+    }
+
+
+    function renderCurrencyOptions(selectId, selected = 'USD') {
+      const select = document.getElementById(selectId);
+      select.innerHTML = `
+        ${KNOWN_CURRENCIES.map(code => `<option value="${code}">${code}</option>`).join('')}
+        <option value="OTHER">Other (type manually)</option>
+      `;
+      if ([...KNOWN_CURRENCIES, 'OTHER'].includes(selected)) select.value = selected;
+    }
+
+    function toggleCurrencyCustomInput(selectId, customInputId) {
+      const select = document.getElementById(selectId);
+      const custom = document.getElementById(customInputId);
+      const isOther = select.value === 'OTHER';
+      custom.classList.toggle('hidden', !isOther);
+      if (!isOther) custom.value = '';
+    }
+
+    function getCurrencyValue(selectId, customInputId) {
+      const selectVal = document.getElementById(selectId).value;
+      if (selectVal !== 'OTHER') return selectVal;
+      return (document.getElementById(customInputId).value || '').trim().toUpperCase();
+    }
+
+    function latestFx(source, target) {
+      if (!source || !target) return null;
+      const s = USD_VALUE_BY_CURRENCY[source];
+      const t = USD_VALUE_BY_CURRENCY[target];
+      if (!s || !t) return null;
+      return s / t;
+    }
+
+    function updateAutoFxHint() {
+      const source = getCurrencyValue('expense-currency', 'expense-currency-custom');
+      const target = getCurrencyValue('expense-target-currency', 'expense-target-currency-custom');
+      const fxHint = document.getElementById('fx-hint');
+      const fxInput = document.getElementById('expense-fx');
+
+      if (!source || !target) {
+        fxHint.textContent = 'Choose both original and target currencies to show a default exchange rate.';
+        fxInput.value = '';
+        return;
+      }
+
+      if (source === target) {
+        fxInput.value = '1.000000';
+        fxHint.textContent = 'Same currency selected. Default rate is 1.000000 (editable).';
+        return;
+      }
+
+      const fx = latestFx(source, target);
+      if (!fx) {
+        fxHint.textContent = `No built-in latest rate for ${source}->${target}. Please type exchange rate manually.`;
+        fxInput.value = '';
+        return;
+      }
+      fxInput.value = fx.toFixed(6);
+      fxHint.textContent = `Default rate ${source}->${target}: ${fx.toFixed(6)} (editable)`;
+    }
+
+    function initCurrencyControls() {
+      renderCurrencyOptions('trip-base', 'USD');
+      renderCurrencyOptions('expense-currency', 'USD');
+      renderCurrencyOptions('expense-target-currency', 'USD');
+      toggleCurrencyCustomInput('trip-base', 'trip-base-custom');
+      toggleCurrencyCustomInput('expense-currency', 'expense-currency-custom');
+      toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom');
     }
 
     function showAuthNotice(message, kind = 'success') {
@@ -189,8 +306,14 @@
       return local.toISOString().slice(0, 16);
     }
 
+    function formatAmount(value) {
+      const num = Number(value);
+      if (Number.isFinite(num)) return num.toFixed(2);
+      return String(value);
+    }
+
     function formatMoney(currency, amount) {
-      return `${currency} ${amount}`;
+      return `${currency} ${formatAmount(amount)}`;
     }
 
     function renderOwnerOptions() {
@@ -265,11 +388,13 @@
         for (const i of items) {
           chunks.push(`
             <button class="expense-row" onclick="openExpenseDetail('${i.id}')">
-              <div>
-                <div class="expense-title">${i.category || 'Untitled order'}</div>
-                <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)}</div>
+              <div class="expense-main">
+                <div class="expense-left">
+                  <div class="expense-title">${i.category || 'Untitled order'}</div>
+                  <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)} (original) → ${formatMoney(i.target_currency, i.amount_in_target)}</div>
+                </div>
+                <div class="expense-amount">${formatMoney(i.currency, myShareAmount(i))}<div class="expense-share-label">your share</div></div>
               </div>
-              <div class="expense-amount">${formatMoney(i.currency, myShareAmount(i))}<div class="expense-share-label">your share</div></div>
             </button>
           `);
         }
@@ -378,7 +503,7 @@
       try {
         await api('/trips', 'POST', {
           name: document.getElementById('trip-name').value,
-          base_currency: document.getElementById('trip-base').value,
+          base_currency: getCurrencyValue('trip-base', 'trip-base-custom'),
         });
         log('Trip created');
         loadTrips();
@@ -402,6 +527,20 @@
 
     async function selectTrip(id) {
       document.getElementById('selected-trip-id').value = id;
+      state.selectedTrip = state.trips.find(t => t.id === id) || null;
+      if (state.selectedTrip) {
+        const base = state.selectedTrip.base_currency;
+        const targetSelect = document.getElementById('expense-target-currency');
+        if (KNOWN_CURRENCIES.includes(base)) {
+          targetSelect.value = base;
+          toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom');
+        } else {
+          targetSelect.value = 'OTHER';
+          document.getElementById('expense-target-currency-custom').value = base;
+          toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom');
+        }
+      }
+      updateAutoFxHint();
       await loadTripMembers(id);
       await loadExpenses();
       log(`Selected trip ${id}`);
@@ -434,7 +573,8 @@
         const splitMode = document.getElementById('split-mode').value;
         const body = {
           amount: String(document.getElementById('expense-amount').value),
-          currency: document.getElementById('expense-currency').value,
+          currency: getCurrencyValue('expense-currency', 'expense-currency-custom'),
+          target_currency: getCurrencyValue('expense-target-currency', 'expense-target-currency-custom'),
           category: document.getElementById('expense-category').value,
           expense_time: iso,
           owner_user_id: document.getElementById('expense-owner').value || undefined,
@@ -447,7 +587,7 @@
           body.custom_split_amounts = raw ? JSON.parse(raw) : {};
         }
         const fx = document.getElementById('expense-fx').value;
-        if (fx) body.fx_rate_to_base = String(fx);
+        if (fx) body.fx_rate_to_target = String(fx);
         await api(`/trips/${tripId}/expenses`, 'POST', body);
         log('Order created');
         await loadExpenses();
@@ -472,6 +612,7 @@
       } catch (e) { log(`Load analytics failed: ${e.message}`); }
     }
 
+    initCurrencyControls();
     setToken(state.token);
     if (state.token) loadTrips();
   </script>
