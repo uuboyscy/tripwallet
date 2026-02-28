@@ -391,7 +391,7 @@ user2@example.com / user2 / 123456</pre>
               <div class="expense-main">
                 <div class="expense-left">
                   <div class="expense-title">${i.category || 'Untitled order'}</div>
-                  <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)} (original) → ${formatMoney(i.target_currency, i.amount_in_target)}</div>
+                  <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)} → ${formatMoney(i.target_currency, i.amount_in_target)}</div>
                 </div>
                 <div class="expense-amount">${formatMoney(i.currency, myShareAmount(i))}<div class="expense-share-label">your share</div></div>
               </div>
