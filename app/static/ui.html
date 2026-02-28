@@ -37,6 +37,10 @@
     .expense-share-label { color: #888; font-size: 12px; }
     .split-member-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; }
     .split-member-grid label { font-size: 14px; display: flex; align-items: center; gap: 4px; color: #333; }
+    .custom-split-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+    .custom-split-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr); gap: 8px; align-items: center; }
+    .custom-split-row span { font-size: 14px; color: #333; }
+    .split-warning { color: #9f1239; font-size: 12px; margin-top: 4px; }
     .detail-card { border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px; margin-top: 12px; }
     .field-caption { font-size: 13px; color: #666; margin-top: 6px; }
     .hint { font-size: 12px; color: #6b7280; margin: 2px 0 8px; }
@@ -143,7 +147,10 @@
           <option value="custom">Split with custom amount</option>
         </select>
         <div id="split-equal-members" class="split-member-grid"></div>
+        <div id="split-custom-form" class="custom-split-grid hidden"></div>
+        <div id="split-custom-warning" class="split-warning hidden"></div>
         <textarea id="split-custom" class="hidden" placeholder='Custom split JSON, e.g. {"uuid-1": 120, "uuid-2": 80}'></textarea>
+        <div id="split-custom-hint" class="hint hidden">Type amount for any member; remaining amount will be auto-distributed across untyped members.</div>
         <textarea id="expense-note" placeholder="Note"></textarea>
         <div class="hint">Optional note: what was this order for?</div>
       </div>
@@ -203,6 +210,8 @@ user2@example.com / user2 / 123456</pre>
       expenses: [],
       selectedExpenseId: null,
       selectedTrip: null,
+      customSplitManualByUserId: {},
+      customSplitRenderedUserIds: [],
     };
 
     function log(msg) {
@@ -327,9 +336,133 @@ user2@example.com / user2 / 123456</pre>
       const mode = document.getElementById('split-mode').value;
       const equalWrap = document.getElementById('split-equal-members');
       const custom = document.getElementById('split-custom');
+      const customForm = document.getElementById('split-custom-form');
+      const customHint = document.getElementById('split-custom-hint');
       equalWrap.classList.toggle('hidden', mode !== 'equal');
       custom.classList.toggle('hidden', mode !== 'custom');
+      customForm.classList.toggle('hidden', mode !== 'custom');
+      customHint.classList.toggle('hidden', mode !== 'custom');
       equalWrap.innerHTML = state.members.map(m => `<label><input type="checkbox" class="split-member" value="${m.user_id}" checked/>${m.display_name}</label>`).join('');
+
+      state.customSplitManualByUserId = {};
+      state.customSplitRenderedUserIds = [];
+      document.querySelectorAll('.split-member').forEach((checkbox) => {
+        checkbox.addEventListener('change', () => {
+          if (!checkbox.checked) delete state.customSplitManualByUserId[checkbox.value];
+          renderCustomSplitAmountInputs();
+        });
+      });
+      renderCustomSplitAmountInputs();
+    }
+
+    function bindCustomSplitInputEvents() {
+      document.querySelectorAll('.split-custom-user-amount').forEach((input) => {
+        input.addEventListener('input', () => {
+          const userId = input.dataset.userId;
+          const parsed = Number(input.value);
+          if (input.value === '' || !Number.isFinite(parsed)) {
+            delete state.customSplitManualByUserId[userId];
+          } else {
+            state.customSplitManualByUserId[userId] = parsed;
+          }
+          renderCustomSplitAmountInputs();
+        });
+      });
+    }
+
+    function syncCustomSplitRows(selectedMembers) {
+      const customForm = document.getElementById('split-custom-form');
+      const selectedIds = selectedMembers.map((member) => member.user_id);
+      const needsRebuild = selectedIds.length !== state.customSplitRenderedUserIds.length
+        || selectedIds.some((id, idx) => id !== state.customSplitRenderedUserIds[idx]);
+
+      if (!needsRebuild) return;
+
+      customForm.innerHTML = selectedMembers.map((member) => `
+        <label class="custom-split-row">
+          <span>${member.display_name}</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            class="split-custom-user-amount"
+            data-user-id="${member.user_id}"
+          />
+        </label>
+      `).join('');
+      state.customSplitRenderedUserIds = selectedIds;
+      bindCustomSplitInputEvents();
+    }
+
+    function toCents(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return null;
+      return Math.round(num * 100);
+    }
+
+    function renderCustomSplitAmountInputs() {
+      const mode = document.getElementById('split-mode').value;
+      const customForm = document.getElementById('split-custom-form');
+      const customField = document.getElementById('split-custom');
+      const warning = document.getElementById('split-custom-warning');
+      if (mode !== 'custom') {
+        warning.classList.add('hidden');
+        return;
+      }
+
+      const selectedMembers = state.members.filter((m) => {
+        const checkbox = document.querySelector(`.split-member[value="${m.user_id}"]`);
+        return checkbox && checkbox.checked;
+      });
+      syncCustomSplitRows(selectedMembers);
+
+      const totalCents = toCents(document.getElementById('expense-amount').value) ?? 0;
+      const manualIds = selectedMembers.filter((m) => Number.isFinite(state.customSplitManualByUserId[m.user_id])).map((m) => m.user_id);
+      const manualSum = manualIds.reduce((sum, userId) => sum + toCents(state.customSplitManualByUserId[userId]), 0);
+      const untypedMembers = selectedMembers.filter((m) => !manualIds.includes(m.user_id));
+
+      const distribution = {};
+      manualIds.forEach((userId) => {
+        distribution[userId] = toCents(state.customSplitManualByUserId[userId]);
+      });
+
+      const remaining = totalCents - manualSum;
+      if (untypedMembers.length > 0) {
+        const baseShare = Math.trunc(remaining / untypedMembers.length);
+        let remainder = remaining - (baseShare * untypedMembers.length);
+        for (const member of untypedMembers) {
+          const adjust = remainder === 0 ? 0 : (remainder > 0 ? 1 : -1);
+          distribution[member.user_id] = baseShare + adjust;
+          remainder -= adjust;
+        }
+      }
+
+      const jsonSplit = {};
+      selectedMembers.forEach((member) => {
+        jsonSplit[member.user_id] = Number(((distribution[member.user_id] ?? 0) / 100).toFixed(2));
+      });
+      customField.value = JSON.stringify(jsonSplit, null, 2);
+
+      const active = document.activeElement;
+      const activeUserId = active && active.classList && active.classList.contains('split-custom-user-amount')
+        ? active.dataset.userId
+        : null;
+
+      selectedMembers.forEach((member) => {
+        const input = customForm.querySelector(`.split-custom-user-amount[data-user-id="${member.user_id}"]`);
+        if (!input) return;
+        const amount = Number(((distribution[member.user_id] ?? 0) / 100).toFixed(2));
+        const manualValue = state.customSplitManualByUserId[member.user_id];
+        const nextValue = Number.isFinite(manualValue) ? Number(manualValue).toFixed(2) : amount.toFixed(2);
+        if (activeUserId === member.user_id) return;
+        if (input.value !== nextValue) input.value = nextValue;
+      });
+
+      const isOverTotal = manualSum > totalCents;
+      warning.textContent = isOverTotal
+        ? 'Typed amounts exceed total order amount. Reduce typed values to continue auto distribution.'
+        : '';
+      warning.classList.toggle('hidden', !isOverTotal);
     }
 
     
@@ -613,6 +746,7 @@ user2@example.com / user2 / 123456</pre>
     }
 
     initCurrencyControls();
+    document.getElementById('expense-amount').addEventListener('input', renderCustomSplitAmountInputs);
     setToken(state.token);
     if (state.token) loadTrips();
   </script>
