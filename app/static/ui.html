@@ -25,18 +25,26 @@
 
     .expense-list { border: 1px solid #e6e6e6; border-radius: 10px; overflow: hidden; }
     .date-divider { background: #ececec; color: #666; padding: 8px 12px; font-weight: 600; }
-    .expense-row { display: flex; justify-content: space-between; gap: 12px; background: #fff; border: 0; border-bottom: 1px solid #efefef; width: 100%; text-align: left; padding: 12px; }
+    .expense-row { display: flex; gap: 12px; background: #fff; border: 0; border-bottom: 1px solid #efefef; width: 100%; text-align: left; padding: 12px; align-items: flex-start; }
     .expense-row:hover { background: #f8fbff; }
     .expense-row:last-child { border-bottom: 0; }
     .expense-title { font-size: 22px; margin-bottom: 4px; color: #222; font-weight: 700; }
-    .expense-subtitle { color: #777; font-size: 14px; }
-    .expense-amount { color: #c56868; font-size: 22px; white-space: nowrap; align-self: center; text-align: right; }
+    .expense-subtitle { color: #777; font-size: 14px; word-break: break-word; }
+
+    .expense-main { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .expense-left { min-width: 0; flex: 1; }
+    .expense-amount { color: #c56868; font-size: 22px; text-align: right; min-width: 150px; max-width: 45%; word-break: break-word; }
     .expense-share-label { color: #888; font-size: 12px; }
     .split-member-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; }
     .split-member-grid label { font-size: 14px; display: flex; align-items: center; gap: 4px; color: #333; }
     .detail-card { border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px; margin-top: 12px; }
     .field-caption { font-size: 13px; color: #666; margin-top: 6px; }
     .hint { font-size: 12px; color: #6b7280; margin: 2px 0 8px; }
+    @media (max-width: 600px) {
+      .expense-main { flex-direction: column; }
+      .expense-amount { text-align: left; min-width: 0; max-width: 100%; font-size: 20px; }
+    }
+
   </style>
 </head>
 <body>
@@ -123,8 +131,8 @@
           <div class="hint">Currency to convert this order into.</div>
         </div>
         <div>
-          <input id="expense-fx" placeholder="FX to trip main currency" type="number" step="0.0001" />
-          <div class="hint" id="fx-hint">Default uses latest known rate automatically.</div>
+          <input id="expense-fx" placeholder="FX rate to selected target currency" type="number" step="0.0001" />
+          <div class="hint" id="fx-hint">Default exchange rate will be shown here and can be edited.</div>
         </div>
         <input id="expense-time" type="datetime-local" />
         <div class="hint">When this order happened.</div>
@@ -244,16 +252,30 @@ user2@example.com / user2 / 123456</pre>
 
     function updateAutoFxHint() {
       const source = getCurrencyValue('expense-currency', 'expense-currency-custom');
-      const tripBase = state.selectedTrip?.base_currency;
+      const target = getCurrencyValue('expense-target-currency', 'expense-target-currency-custom');
       const fxHint = document.getElementById('fx-hint');
       const fxInput = document.getElementById('expense-fx');
-      const fx = latestFx(source, tripBase);
-      if (!fx || !tripBase) {
-        fxHint.textContent = 'Default uses latest known rate automatically. Unknown currencies may need manual FX.';
+
+      if (!source || !target) {
+        fxHint.textContent = 'Choose both original and target currencies to show a default exchange rate.';
+        fxInput.value = '';
         return;
       }
-      fxHint.textContent = `Latest estimate ${source}->${tripBase}: ${fx.toFixed(6)} (editable)`;
-      if (!fxInput.value) fxInput.value = fx.toFixed(6);
+
+      if (source === target) {
+        fxInput.value = '1.000000';
+        fxHint.textContent = 'Same currency selected. Default rate is 1.000000 (editable).';
+        return;
+      }
+
+      const fx = latestFx(source, target);
+      if (!fx) {
+        fxHint.textContent = `No built-in latest rate for ${source}->${target}. Please type exchange rate manually.`;
+        fxInput.value = '';
+        return;
+      }
+      fxInput.value = fx.toFixed(6);
+      fxHint.textContent = `Default rate ${source}->${target}: ${fx.toFixed(6)} (editable)`;
     }
 
     function initCurrencyControls() {
@@ -284,8 +306,14 @@ user2@example.com / user2 / 123456</pre>
       return local.toISOString().slice(0, 16);
     }
 
+    function formatAmount(value) {
+      const num = Number(value);
+      if (Number.isFinite(num)) return num.toFixed(2);
+      return String(value);
+    }
+
     function formatMoney(currency, amount) {
-      return `${currency} ${amount}`;
+      return `${currency} ${formatAmount(amount)}`;
     }
 
     function renderOwnerOptions() {
@@ -360,11 +388,13 @@ user2@example.com / user2 / 123456</pre>
         for (const i of items) {
           chunks.push(`
             <button class="expense-row" onclick="openExpenseDetail('${i.id}')">
-              <div>
-                <div class="expense-title">${i.category || 'Untitled order'}</div>
-                <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)} (original) → ${formatMoney(i.target_currency, i.amount_in_target)}</div>
+              <div class="expense-main">
+                <div class="expense-left">
+                  <div class="expense-title">${i.category || 'Untitled order'}</div>
+                  <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)} (original) → ${formatMoney(i.target_currency, i.amount_in_target)}</div>
+                </div>
+                <div class="expense-amount">${formatMoney(i.currency, myShareAmount(i))}<div class="expense-share-label">your share</div></div>
               </div>
-              <div class="expense-amount">${formatMoney(i.currency, myShareAmount(i))}<div class="expense-share-label">your share</div></div>
             </button>
           `);
         }
@@ -557,7 +587,7 @@ user2@example.com / user2 / 123456</pre>
           body.custom_split_amounts = raw ? JSON.parse(raw) : {};
         }
         const fx = document.getElementById('expense-fx').value;
-        if (fx) body.fx_rate_to_base = String(fx);
+        if (fx) body.fx_rate_to_target = String(fx);
         await api(`/trips/${tripId}/expenses`, 'POST', body);
         log('Order created');
         await loadExpenses();
