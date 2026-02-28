@@ -211,6 +211,7 @@ user2@example.com / user2 / 123456</pre>
       selectedExpenseId: null,
       selectedTrip: null,
       customSplitManualByUserId: {},
+      customSplitRenderedUserIds: [],
     };
 
     function log(msg) {
@@ -344,6 +345,7 @@ user2@example.com / user2 / 123456</pre>
       equalWrap.innerHTML = state.members.map(m => `<label><input type="checkbox" class="split-member" value="${m.user_id}" checked/>${m.display_name}</label>`).join('');
 
       state.customSplitManualByUserId = {};
+      state.customSplitRenderedUserIds = [];
       document.querySelectorAll('.split-member').forEach((checkbox) => {
         checkbox.addEventListener('change', () => {
           if (!checkbox.checked) delete state.customSplitManualByUserId[checkbox.value];
@@ -351,6 +353,45 @@ user2@example.com / user2 / 123456</pre>
         });
       });
       renderCustomSplitAmountInputs();
+    }
+
+    function bindCustomSplitInputEvents() {
+      document.querySelectorAll('.split-custom-user-amount').forEach((input) => {
+        input.addEventListener('input', () => {
+          const userId = input.dataset.userId;
+          const parsed = Number(input.value);
+          if (input.value === '' || !Number.isFinite(parsed)) {
+            delete state.customSplitManualByUserId[userId];
+          } else {
+            state.customSplitManualByUserId[userId] = parsed;
+          }
+          renderCustomSplitAmountInputs();
+        });
+      });
+    }
+
+    function syncCustomSplitRows(selectedMembers) {
+      const customForm = document.getElementById('split-custom-form');
+      const selectedIds = selectedMembers.map((member) => member.user_id);
+      const needsRebuild = selectedIds.length !== state.customSplitRenderedUserIds.length
+        || selectedIds.some((id, idx) => id !== state.customSplitRenderedUserIds[idx]);
+
+      if (!needsRebuild) return;
+
+      customForm.innerHTML = selectedMembers.map((member) => `
+        <label class="custom-split-row">
+          <span>${member.display_name}</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            class="split-custom-user-amount"
+            data-user-id="${member.user_id}"
+          />
+        </label>
+      `).join('');
+      state.customSplitRenderedUserIds = selectedIds;
+      bindCustomSplitInputEvents();
     }
 
     function toCents(value) {
@@ -373,6 +414,7 @@ user2@example.com / user2 / 123456</pre>
         const checkbox = document.querySelector(`.split-member[value="${m.user_id}"]`);
         return checkbox && checkbox.checked;
       });
+      syncCustomSplitRows(selectedMembers);
 
       const totalCents = toCents(document.getElementById('expense-amount').value) ?? 0;
       const manualIds = selectedMembers.filter((m) => Number.isFinite(state.customSplitManualByUserId[m.user_id])).map((m) => m.user_id);
@@ -401,35 +443,19 @@ user2@example.com / user2 / 123456</pre>
       });
       customField.value = JSON.stringify(jsonSplit, null, 2);
 
-      customForm.innerHTML = selectedMembers.map((member) => {
+      const active = document.activeElement;
+      const activeUserId = active && active.classList && active.classList.contains('split-custom-user-amount')
+        ? active.dataset.userId
+        : null;
+
+      selectedMembers.forEach((member) => {
+        const input = customForm.querySelector(`.split-custom-user-amount[data-user-id="${member.user_id}"]`);
+        if (!input) return;
         const amount = Number(((distribution[member.user_id] ?? 0) / 100).toFixed(2));
         const manualValue = state.customSplitManualByUserId[member.user_id];
-        return `
-          <label class="custom-split-row">
-            <span>${member.display_name}</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              class="split-custom-user-amount"
-              data-user-id="${member.user_id}"
-              value="${Number.isFinite(manualValue) ? Number(manualValue).toFixed(2) : amount.toFixed(2)}"
-            />
-          </label>
-        `;
-      }).join('');
-
-      document.querySelectorAll('.split-custom-user-amount').forEach((input) => {
-        input.addEventListener('input', () => {
-          const userId = input.dataset.userId;
-          const parsed = Number(input.value);
-          if (input.value === '' || !Number.isFinite(parsed)) {
-            delete state.customSplitManualByUserId[userId];
-          } else {
-            state.customSplitManualByUserId[userId] = parsed;
-          }
-          renderCustomSplitAmountInputs();
-        });
+        const nextValue = Number.isFinite(manualValue) ? Number(manualValue).toFixed(2) : amount.toFixed(2);
+        if (activeUserId === member.user_id) return;
+        if (input.value !== nextValue) input.value = nextValue;
       });
 
       const isOverTotal = manualSum > totalCents;
