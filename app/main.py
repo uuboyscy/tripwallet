@@ -35,6 +35,11 @@ USD_VALUE_BY_CURRENCY: dict[str, Decimal] = {
     "CNY": Decimal("0.139"),
 }
 
+DEFAULT_TEST_ACCOUNTS = (
+    {"email": "user1@example.com", "display_name": "user1", "password": "123456"},
+    {"email": "user2@example.com", "display_name": "user2", "password": "123456"},
+)
+
 
 class TripStatus(str, Enum):
     active = "active"
@@ -238,6 +243,15 @@ invite_index: dict[str, UUID] = {}
 expenses: dict[UUID, list[Expense]] = defaultdict(list)
 
 
+def ensure_default_test_accounts() -> None:
+    for item in DEFAULT_TEST_ACCOUNTS:
+        email = item["email"].lower()
+        if email in users_by_email:
+            continue
+        create_user(email=email, password=item["password"], display_name=item["display_name"])
+
+
+
 def now_utc() -> datetime:
     return datetime.now(UTC)
 
@@ -295,6 +309,22 @@ def serialize_user(user: User) -> UserResponse:
 
 def serialize_trip(trip: Trip) -> TripResponse:
     return TripResponse(**trip.model_dump())
+
+
+def create_user(email: str, password: str, display_name: str) -> User:
+    user = User(
+        id=uuid4(),
+        email=email,
+        password_hash=hash_password(password),
+        display_name=display_name,
+        created_at=datetime.now(UTC),
+    )
+    users[user.id] = user
+    users_by_email[email] = user.id
+    return user
+
+
+ensure_default_test_accounts()
 
 
 def normalize_currency(currency: str) -> str:
@@ -380,15 +410,7 @@ def signup(payload: SignupRequest) -> AuthResponse:
     if email in users_by_email:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    user = User(
-        id=uuid4(),
-        email=email,
-        password_hash=hash_password(payload.password),
-        display_name=payload.display_name,
-        created_at=now_utc(),
-    )
-    users[user.id] = user
-    users_by_email[email] = user.id
+    user = create_user(email=email, password=payload.password, display_name=payload.display_name)
     return AuthResponse(access_token=issue_token(user))
 
 

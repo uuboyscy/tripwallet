@@ -49,14 +49,19 @@
         <div>
           <h3>Sign up</h3>
           <input id="signup-email" placeholder="Email" />
+          <div class="hint">Use a valid email address for your account.</div>
           <input id="signup-name" placeholder="Display Name" />
+          <div class="hint">Name shown to other trip members.</div>
           <input id="signup-password" placeholder="Password" type="password" />
+          <div class="hint">At least 6 characters.</div>
           <button onclick="signup()">Sign up</button>
         </div>
         <div>
           <h3>Login</h3>
           <input id="login-email" placeholder="Email" />
+          <div class="hint">Enter your registered email.</div>
           <input id="login-password" placeholder="Password" type="password" />
+          <div class="hint">Enter your account password.</div>
           <button onclick="login()">Login</button>
         </div>
       </div>
@@ -91,10 +96,12 @@
       <h2>3) Orders</h2>
       <label>Selected Trip ID</label>
       <input id="selected-trip-id" placeholder="Select a trip first" />
+      <div class="hint">Choose a trip from the list to load members and orders.</div>
 
       <h3>Create invite (owner)</h3>
       <div class="row">
         <input id="invite-hours" type="number" value="24" min="1" />
+        <div class="hint">Invite expiration in hours.</div>
         <button onclick="createInvite()">Generate Invite</button>
       </div>
       <div id="invite-result"></div>
@@ -102,7 +109,9 @@
       <h3>Add order</h3>
       <div class="grid">
         <input id="expense-category" placeholder="Order name" value="food" />
+        <div class="hint">Short description like food, transport, hotel.</div>
         <input id="expense-amount" placeholder="Amount" type="number" step="0.01" />
+        <div class="hint">Amount in the original currency.</div>
         <div>
           <select id="expense-currency" onchange="toggleCurrencyCustomInput('expense-currency', 'expense-currency-custom'); updateAutoFxHint()"></select>
           <input id="expense-currency-custom" class="hidden" placeholder="Type custom original currency code" />
@@ -118,7 +127,9 @@
           <div class="hint" id="fx-hint">Default uses latest known rate automatically.</div>
         </div>
         <input id="expense-time" type="datetime-local" />
+        <div class="hint">When this order happened.</div>
         <select id="expense-owner"></select>
+        <div class="hint">Who owns this order record.</div>
         <select id="split-mode" onchange="renderSplitFields()">
           <option value="equal">Split equally</option>
           <option value="custom">Split with custom amount</option>
@@ -157,6 +168,13 @@
       <h3>Analytics Summary</h3>
       <button class="secondary" onclick="loadAnalytics()">Load analytics</button>
       <pre id="analytics-output">{}</pre>
+    </div>
+
+    <div class="card">
+      <h2>Testing Accounts</h2>
+      <div class="hint">Preloaded on server start for quick testing.</div>
+      <pre>user1@example.com / user1 / 123456
+user2@example.com / user2 / 123456</pre>
     </div>
 
     <div class="card">

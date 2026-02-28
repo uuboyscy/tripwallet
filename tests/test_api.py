@@ -107,3 +107,13 @@ def test_expense_uses_latest_fx_and_target_currency() -> None:
     assert body["currency"] == "USD"
     assert body["fx_rate_to_base"] == "32.25806451612903225806451613"
     assert body["fx_rate_to_target"] == "149.2537313432835820895522388"
+
+
+def test_default_testing_accounts_can_login() -> None:
+    user1 = client.post("/auth/login", json={"email": "user1@example.com", "password": "123456"})
+    assert user1.status_code == 200
+    assert user1.json()["access_token"]
+
+    user2 = client.post("/auth/login", json={"email": "user2@example.com", "password": "123456"})
+    assert user2.status_code == 200
+    assert user2.json()["access_token"]
