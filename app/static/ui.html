@@ -3,351 +3,1555 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TripWallet MVP</title>
+  <title>TripWallet</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ["Public Sans", "sans-serif"],
+          },
+          boxShadow: {
+            soft: "0 20px 45px -25px rgba(15, 23, 42, 0.35)",
+          },
+        },
+      },
+    };
+  </script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; color: #222; }
-    .wrap { max-width: 1000px; margin: 0 auto; padding: 16px; }
-    .card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-    h1,h2,h3,h4 { margin: 0 0 12px; }
-    input, select, button, textarea { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
-    input[type="checkbox"] { width: auto; margin: 0 6px 0 0; }
-    button { cursor: pointer; border: 0; background: #2463eb; color: #fff; border-radius: 6px; }
-    button.secondary { background: #5f6b7a; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
-    .row { display: flex; gap: 8px; align-items: center; }
-    .row > * { flex: 1; }
-    .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; background:#eef3ff; font-size: 12px; }
-    .hidden { display:none; }
-    pre { background:#111827; color:#e5e7eb; padding:10px; border-radius:8px; overflow:auto; }
-    .notice { padding: 10px; border-radius: 8px; margin: 8px 0 12px; font-weight: 600; }
-    .notice.success { background: #e8f7ee; color: #146534; }
-    .notice.error { background: #fdebec; color: #9f1239; }
-
-    .expense-list { border: 1px solid #e6e6e6; border-radius: 10px; overflow: hidden; }
-    .date-divider { background: #ececec; color: #666; padding: 8px 12px; font-weight: 600; }
-    .expense-row { display: flex; gap: 12px; background: #fff; border: 0; border-bottom: 1px solid #efefef; width: 100%; text-align: left; padding: 12px; align-items: flex-start; }
-    .expense-row:hover { background: #f8fbff; }
-    .expense-row:last-child { border-bottom: 0; }
-    .expense-title { font-size: 22px; margin-bottom: 4px; color: #222; font-weight: 700; }
-    .expense-subtitle { color: #777; font-size: 14px; word-break: break-word; }
-
-    .expense-main { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-    .expense-left { min-width: 0; flex: 1; }
-    .expense-amount { color: #c56868; font-size: 22px; text-align: right; min-width: 150px; max-width: 45%; word-break: break-word; }
-    .expense-share-label { color: #888; font-size: 12px; }
-    .split-member-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; }
-    .split-member-grid label { font-size: 14px; display: flex; align-items: center; gap: 4px; color: #333; }
-    .custom-split-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
-    .custom-split-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr); gap: 8px; align-items: center; }
-    .custom-split-row span { font-size: 14px; color: #333; }
-    .split-warning { color: #9f1239; font-size: 12px; margin-top: 4px; }
-    .detail-card { border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px; margin-top: 12px; }
-    .field-caption { font-size: 13px; color: #666; margin-top: 6px; }
-    .hint { font-size: 12px; color: #6b7280; margin: 2px 0 8px; }
-    @media (max-width: 600px) {
-      .expense-main { flex-direction: column; }
-      .expense-amount { text-align: left; min-width: 0; max-width: 100%; font-size: 20px; }
+    body {
+      min-height: 100vh;
+      font-family: "Public Sans", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(14, 165, 233, 0.10), transparent 32%),
+        linear-gradient(180deg, #f8fbff 0%, #f8fafc 48%, #eef2ff 100%);
     }
 
+    .material-symbols-outlined {
+      font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 24;
+    }
+
+    .drawer-transition {
+      transition: transform 0.25s ease;
+    }
+
+    .modal-transition {
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .thin-scrollbar::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    .thin-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.6);
+      border-radius: 999px;
+    }
+
+    .safe-bottom {
+      padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    }
+
+    .safe-bottom-nav {
+      padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    }
+
+    .chart-donut {
+      position: relative;
+      border-radius: 999px;
+      background: conic-gradient(#0ea5e9 0deg 360deg);
+    }
+
+    .chart-donut::after {
+      content: "";
+      position: absolute;
+      inset: 1.25rem;
+      border-radius: 999px;
+      background: white;
+      box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.9);
+    }
+
+    .chart-donut-label {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 1rem;
+    }
   </style>
 </head>
-<body>
-  <div class="wrap">
-    <h1>TripWallet MVP UI</h1>
+<body class="text-slate-900 antialiased">
+  <div id="toast-root" class="fixed inset-x-0 top-4 z-[80] flex flex-col items-center gap-2 px-4 pointer-events-none"></div>
 
-    <div class="card" id="auth-card">
-      <h2>1) Sign up / Login</h2>
-      <div class="grid">
-        <div>
-          <h3>Sign up</h3>
-          <input id="signup-email" placeholder="Email" />
-          <div class="hint">Use a valid email address for your account.</div>
-          <input id="signup-name" placeholder="Display Name" />
-          <div class="hint">Name shown to other trip members.</div>
-          <input id="signup-password" placeholder="Password" type="password" />
-          <div class="hint">At least 6 characters.</div>
-          <button onclick="signup()">Sign up</button>
-        </div>
-        <div>
-          <h3>Login</h3>
-          <input id="login-email" placeholder="Email" />
-          <div class="hint">Enter your registered email.</div>
-          <input id="login-password" placeholder="Password" type="password" />
-          <div class="hint">Enter your account password.</div>
-          <button onclick="login()">Login</button>
-        </div>
-      </div>
-      <div id="auth-notice" class="notice hidden" role="status" aria-live="polite"></div>
-      <p>Current token: <span class="pill" id="token-state">none</span></p>
+  <section id="login-screen" class="relative min-h-screen overflow-hidden px-4 py-8">
+    <div class="absolute inset-0 z-0">
+      <img
+        class="h-full w-full object-cover opacity-10 grayscale"
+        src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1bbQDfMYOiV0mPXZiqhVTuVsJio1KqNaEkHMBN811gRecFP7hJJFS2H9wJ53j1F_2GpLIIgOw6zdqpSNJHiUKQUUBTSs7GMs4gNNAVpf0oqpk_svy82TTeNcvkCgpjddbrk8emrezd5hK5Iwimt5nHdFm15qpc4uunt3SNOTqAwX0inpoIUG4w6htE0JxcC3sQZ1-jO4gXsJ1HX18JZEQtGwSMmJ3x6uBHQ5PkKAkM4OJVgcfMK7laooX4_qp0h9YxJwP_EhpZYs"
+        alt="Travel background"
+      />
+      <div class="absolute inset-0 bg-gradient-to-tr from-sky-50/90 via-white/60 to-transparent"></div>
     </div>
 
-    <div class="card hidden" id="trip-card">
-      <h2>2) Trips</h2>
-      <div class="grid">
-        <div>
-          <h3>Create trip</h3>
-          <input id="trip-name" placeholder="Trip name" />
-          <div class="hint">Enter an easy-to-recognize trip title.</div>
-          <select id="trip-base" onchange="toggleCurrencyCustomInput('trip-base', 'trip-base-custom')"></select>
-          <input id="trip-base-custom" class="hidden" placeholder="Type custom main currency code" />
-          <div class="hint">Pick the trip main currency (final settlement currency).</div>
-          <button onclick="createTrip()">Create trip</button>
-        </div>
-        <div>
-          <h3>Join by invite code</h3>
-          <input id="join-code" placeholder="Invite code" />
-          <div class="hint">Paste the invite code shared by the trip owner.</div>
-          <button onclick="joinTrip()">Join</button>
-        </div>
-      </div>
-      <button class="secondary" onclick="loadTrips()">Reload my trips</button>
-      <div id="trip-list"></div>
-    </div>
-
-    <div class="card hidden" id="expense-card">
-      <h2>3) Orders</h2>
-      <label>Selected Trip ID</label>
-      <input id="selected-trip-id" placeholder="Select a trip first" />
-      <div class="hint">Choose a trip from the list to load members and orders.</div>
-
-      <h3>Create invite (owner)</h3>
-      <div class="row">
-        <input id="invite-hours" type="number" value="24" min="1" />
-        <div class="hint">Invite expiration in hours.</div>
-        <button onclick="createInvite()">Generate Invite</button>
-      </div>
-      <div id="invite-result"></div>
-
-      <h3>Add order</h3>
-      <div class="grid">
-        <input id="expense-category" placeholder="Order name" value="food" />
-        <div class="hint">Short description like food, transport, hotel.</div>
-        <input id="expense-amount" placeholder="Amount" type="number" step="0.01" />
-        <div class="hint">Amount in the original currency.</div>
-        <div>
-          <select id="expense-currency" onchange="toggleCurrencyCustomInput('expense-currency', 'expense-currency-custom'); updateAutoFxHint()"></select>
-          <input id="expense-currency-custom" class="hidden" placeholder="Type custom original currency code" />
-          <div class="hint">Original currency that you paid in.</div>
-        </div>
-        <div>
-          <select id="expense-target-currency" onchange="toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom'); updateAutoFxHint()"></select>
-          <input id="expense-target-currency-custom" class="hidden" placeholder="Type custom target currency code" />
-          <div class="hint">Currency to convert this order into.</div>
-        </div>
-        <div>
-          <input id="expense-fx" placeholder="FX rate to selected target currency" type="number" step="0.0001" />
-          <div class="hint" id="fx-hint">Default exchange rate will be shown here and can be edited.</div>
-        </div>
-        <input id="expense-time" type="datetime-local" />
-        <div class="hint">When this order happened.</div>
-        <select id="expense-owner"></select>
-        <div class="hint">Who owns this order record.</div>
-        <select id="split-mode" onchange="renderSplitFields()">
-          <option value="equal">Split equally</option>
-          <option value="custom">Split with custom amount</option>
-        </select>
-        <div id="split-equal-members" class="split-member-grid"></div>
-        <div id="split-custom-form" class="custom-split-grid hidden"></div>
-        <div id="split-custom-warning" class="split-warning hidden"></div>
-        <textarea id="split-custom" class="hidden" placeholder='Custom split JSON, e.g. {"uuid-1": 120, "uuid-2": 80}'></textarea>
-        <div id="split-custom-hint" class="hint hidden">Type amount for any member; remaining amount will be auto-distributed across untyped members.</div>
-        <textarea id="expense-note" placeholder="Note"></textarea>
-        <div class="hint">Optional note: what was this order for?</div>
-      </div>
-      <button onclick="createExpense()">Create order</button>
-
-      <h3>Order history</h3>
-      <button class="secondary" onclick="loadExpenses()">Load orders</button>
-      <div id="expense-list" class="expense-list"></div>
-
-      <div id="order-detail" class="detail-card hidden">
-        <h4>Order detail</h4>
-        <div class="grid">
-          <input id="detail-name" placeholder="Order name" />
-          <input id="detail-amount" placeholder="Amount" type="number" step="0.01" />
-          <select id="detail-owner"></select>
-          <input id="detail-time" type="datetime-local" />
-          <select id="detail-split-mode" onchange="renderDetailSplitFields()">
-            <option value="equal">Split equally</option>
-            <option value="custom">Split with custom amount</option>
-          </select>
-          <div>
-            <div class="field-caption">Members who should pay for this order</div>
-            <div id="detail-split-members" class="split-member-grid"></div>
+    <main class="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[440px] items-center">
+      <div class="w-full">
+        <div class="mb-10 text-center">
+          <div class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-600 shadow-xl shadow-sky-200">
+            <span class="material-symbols-outlined text-3xl text-white">account_balance_wallet</span>
           </div>
-          <textarea id="detail-split-custom" class="hidden" placeholder='Custom split JSON, e.g. {"uuid-1": 120, "uuid-2": 80}'></textarea>
+          <h1 class="text-3xl font-extrabold tracking-tight text-sky-700">TripWallet</h1>
+          <p class="mt-2 font-medium text-slate-500">Simplify your travel expenses</p>
         </div>
-        <button onclick="saveExpenseDetail()">Save changes</button>
+
+        <div class="rounded-[2rem] border border-white/80 bg-white/85 p-8 shadow-soft backdrop-blur-xl md:p-10">
+          <div class="mb-6 inline-flex rounded-2xl bg-slate-100 p-1 text-sm font-bold text-slate-500">
+            <button
+              id="auth-login-tab"
+              type="button"
+              class="rounded-xl bg-white px-4 py-2 text-sky-700 shadow-sm transition-colors"
+              onclick="setAuthMode('login')"
+            >
+              Login
+            </button>
+            <button
+              id="auth-signup-tab"
+              type="button"
+              class="rounded-xl px-4 py-2 transition-colors"
+              onclick="setAuthMode('signup')"
+            >
+              Create Account
+            </button>
+          </div>
+
+          <form class="space-y-6" onsubmit="handleAuthSubmit(event)">
+            <div id="signup-name-wrap" class="hidden space-y-2">
+              <label class="ml-1 block text-sm font-semibold text-slate-700" for="signup-name">Display name</label>
+              <div class="relative">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                  <span class="material-symbols-outlined text-xl text-slate-400">badge</span>
+                </div>
+                <input
+                  id="signup-name"
+                  class="block w-full rounded-xl border-none bg-slate-50 py-3.5 pl-11 pr-4 text-slate-900 ring-1 ring-slate-200 transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500"
+                  placeholder="How should the group know you?"
+                  type="text"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="ml-1 block text-sm font-semibold text-slate-700" for="auth-email">Email address</label>
+              <div class="relative">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                  <span class="material-symbols-outlined text-xl text-slate-400">mail</span>
+                </div>
+                <input
+                  id="auth-email"
+                  class="block w-full rounded-xl border-none bg-slate-50 py-3.5 pl-11 pr-4 text-slate-900 ring-1 ring-slate-200 transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500"
+                  placeholder="name@example.com"
+                  required
+                  type="email"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <div class="ml-1 flex items-center justify-between">
+                <label class="block text-sm font-semibold text-slate-700" for="auth-password">Password</label>
+                <button type="button" class="text-xs font-bold text-sky-600 transition-colors hover:text-sky-700" onclick="useDemoPassword()">
+                  Use demo password
+                </button>
+              </div>
+              <div class="relative">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                  <span class="material-symbols-outlined text-xl text-slate-400">lock</span>
+                </div>
+                <input
+                  id="auth-password"
+                  class="block w-full rounded-xl border-none bg-slate-50 py-3.5 pl-11 pr-4 text-slate-900 ring-1 ring-slate-200 transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500"
+                  placeholder="At least 6 characters"
+                  required
+                  type="password"
+                />
+              </div>
+            </div>
+
+            <button
+              id="auth-submit"
+              class="group flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-4 font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.98]"
+              type="submit"
+            >
+              <span id="auth-submit-label">Login</span>
+              <span class="material-symbols-outlined text-xl transition-transform group-hover:translate-x-1">arrow_forward</span>
+            </button>
+          </form>
+
+          <div id="auth-feedback" class="mt-5 hidden rounded-2xl border px-4 py-3 text-sm font-semibold"></div>
+
+          <div class="mt-8 text-center text-sm font-medium text-slate-500">
+            <span id="auth-switch-copy">New to TripWallet?</span>
+            <button
+              id="auth-switch-action"
+              type="button"
+              class="ml-1 font-bold text-sky-600 underline decoration-2 underline-offset-4 hover:text-sky-700"
+              onclick="toggleAuthMode()"
+            >
+              Sign Up
+            </button>
+          </div>
+
+          <div class="relative my-8">
+            <div aria-hidden="true" class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-slate-100"></div>
+            </div>
+            <div class="relative flex justify-center text-xs font-bold uppercase tracking-[0.22em]">
+              <span class="bg-white/0 px-4 text-slate-400">Quick Access</span>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+            <p class="mb-3 text-center text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+              Default Accounts
+            </p>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                class="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 shadow-sm transition-all hover:border-sky-200 hover:bg-sky-50 hover:text-sky-600 active:scale-95"
+                onclick="loginWithPreset('user1@example.com')"
+              >
+                <span class="material-symbols-outlined text-lg">person</span>
+                user1
+              </button>
+              <button
+                type="button"
+                class="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 shadow-sm transition-all hover:border-sky-200 hover:bg-sky-50 hover:text-sky-600 active:scale-95"
+                onclick="loginWithPreset('user2@example.com')"
+              >
+                <span class="material-symbols-outlined text-lg">person_4</span>
+                user2
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <p class="mt-10 text-center text-xs font-medium text-slate-400">(c) 2026 TripWallet &middot; Secure Travel Transactions</p>
+      </div>
+    </main>
+  </section>
+
+  <div id="app-shell" class="hidden min-h-screen pb-32">
+    <div id="drawer-overlay" class="fixed inset-0 z-40 hidden bg-slate-950/40 backdrop-blur-sm" onclick="toggleDrawer(false)"></div>
+
+    <aside
+      id="trip-drawer"
+      class="drawer-transition thin-scrollbar fixed inset-y-0 left-0 z-50 flex w-full max-w-sm -translate-x-full flex-col overflow-y-auto border-r border-slate-200 bg-white px-5 py-5 shadow-2xl"
+    >
+      <div class="mb-5 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-sky-500">Workspace</p>
+          <h2 class="text-xl font-extrabold tracking-tight text-slate-900">Trip Control</h2>
+        </div>
+        <button type="button" class="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900" onclick="toggleDrawer(false)">
+          <span class="material-symbols-outlined">close</span>
+        </button>
       </div>
 
-      <h3>Analytics Summary</h3>
-      <button class="secondary" onclick="loadAnalytics()">Load analytics</button>
-      <pre id="analytics-output">{}</pre>
-    </div>
+      <section class="mb-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+        <div class="flex items-center gap-3">
+          <div id="drawer-user-avatar" class="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sm font-black text-sky-700"></div>
+          <div class="min-w-0 flex-1">
+            <p id="drawer-user-name" class="truncate font-bold text-slate-900"></p>
+            <p id="drawer-user-email" class="truncate text-sm text-slate-500"></p>
+          </div>
+          <button type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="logout()">
+            Logout
+          </button>
+        </div>
+      </section>
 
-    <div class="card">
-      <h2>Testing Accounts</h2>
-      <div class="hint">Preloaded on server start for quick testing.</div>
-      <pre>user1@example.com / user1 / 123456
-user2@example.com / user2 / 123456</pre>
-    </div>
+      <section class="mb-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-slate-400">Trips</p>
+            <h3 class="text-lg font-extrabold tracking-tight text-slate-900">Create a Trip</h3>
+          </div>
+          <span class="material-symbols-outlined rounded-2xl bg-sky-50 p-2 text-sky-600">luggage</span>
+        </div>
 
-    <div class="card">
-      <h2>Logs</h2>
-      <pre id="logs"></pre>
+        <div class="space-y-3">
+          <input id="trip-name" class="w-full rounded-2xl border-none bg-slate-50 px-4 py-3 text-sm font-medium ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" placeholder="Hokkaido Ski Trip" />
+          <div class="grid grid-cols-2 gap-3">
+            <input id="trip-start" class="w-full rounded-2xl border-none bg-slate-50 px-4 py-3 text-sm font-medium ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" type="date" />
+            <input id="trip-end" class="w-full rounded-2xl border-none bg-slate-50 px-4 py-3 text-sm font-medium ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" type="date" />
+          </div>
+          <div class="space-y-2">
+            <select id="trip-base" class="w-full rounded-2xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" onchange="toggleCurrencyCustomInput('trip-base', 'trip-base-custom')"></select>
+            <input id="trip-base-custom" class="hidden w-full rounded-2xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold uppercase ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" placeholder="Custom currency code" />
+          </div>
+          <button type="button" class="w-full rounded-2xl bg-sky-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.99]" onclick="createTrip()">
+            Create Trip
+          </button>
+        </div>
+      </section>
+
+      <section class="mb-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-slate-400">Collaborate</p>
+            <h3 class="text-lg font-extrabold tracking-tight text-slate-900">Join by Invite Code</h3>
+          </div>
+          <span class="material-symbols-outlined rounded-2xl bg-emerald-50 p-2 text-emerald-600">group_add</span>
+        </div>
+        <div class="space-y-3">
+          <input id="join-code" class="w-full rounded-2xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold uppercase ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" placeholder="Paste invite code" />
+          <button type="button" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="joinTrip()">
+            Join Trip
+          </button>
+        </div>
+      </section>
+
+      <section class="mb-4 rounded-3xl border border-slate-200 bg-slate-900 p-5 text-white shadow-soft">
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-sky-300">Invite</p>
+            <h3 class="text-lg font-extrabold tracking-tight">Selected Trip Access</h3>
+          </div>
+          <span class="material-symbols-outlined rounded-2xl bg-white/10 p-2 text-white">key</span>
+        </div>
+        <p id="selected-trip-caption" class="mb-3 text-sm text-slate-300">Select a trip to generate a fresh invite.</p>
+        <div class="flex items-center gap-3">
+          <input id="invite-hours" class="w-full rounded-2xl border-none bg-white/10 px-4 py-3 text-sm font-semibold text-white placeholder:text-slate-400 ring-1 ring-white/15 focus:ring-2 focus:ring-sky-400" min="1" step="1" type="number" value="24" />
+          <button id="invite-button" type="button" class="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition-transform hover:scale-[1.02]" onclick="createInvite()">
+            Generate
+          </button>
+        </div>
+        <div id="invite-result" class="mt-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-100">No invite generated yet.</div>
+      </section>
+
+      <section class="flex min-h-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-slate-400">Your Trips</p>
+            <h3 class="text-lg font-extrabold tracking-tight text-slate-900">Switch Context</h3>
+          </div>
+          <button type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="loadTrips()">
+            Refresh
+          </button>
+        </div>
+        <div id="trip-list" class="thin-scrollbar space-y-3 overflow-y-auto"></div>
+      </section>
+    </aside>
+
+    <header class="fixed top-0 left-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/90 px-4 shadow-sm backdrop-blur-md">
+      <div class="flex items-center gap-3">
+        <button type="button" class="rounded-full p-2 transition-colors hover:bg-slate-100" onclick="toggleDrawer(true)">
+          <span class="material-symbols-outlined text-sky-600">menu</span>
+        </button>
+        <div>
+          <p class="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">TripWallet</p>
+          <h1 id="header-title" class="text-lg font-bold tracking-tight text-slate-900">Dashboard</h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button type="button" class="hidden rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 md:inline-flex" onclick="loadCurrentTripContext()">
+          <span class="material-symbols-outlined">refresh</span>
+        </button>
+        <div class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-sm">
+          <div id="header-user-avatar" class="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-xs font-black text-sky-700"></div>
+          <span id="header-user-name" class="hidden max-w-[120px] truncate text-sm font-semibold text-slate-700 md:inline"></span>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto mt-16 w-full max-w-5xl px-4 pt-6">
+      <section id="no-trip-state" class="hidden">
+        <div class="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-8 shadow-soft">
+          <div class="absolute right-0 top-0 h-40 w-40 -translate-y-1/3 translate-x-1/4 rounded-full bg-sky-100 blur-3xl"></div>
+          <div class="relative max-w-2xl">
+            <p class="mb-2 text-xs font-extrabold uppercase tracking-[0.22em] text-sky-500">No Trip Selected</p>
+            <h2 class="text-3xl font-extrabold tracking-tight text-slate-900">Create or join a trip to start using the new workspace.</h2>
+            <p class="mt-3 text-base font-medium text-slate-500">
+              The Stitch design is now wired into the real API. Open the menu to create a trip, join one with an invite code, or switch between existing trips.
+            </p>
+            <div class="mt-6 flex flex-wrap gap-3">
+              <button type="button" class="rounded-2xl bg-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700" onclick="toggleDrawer(true)">
+                Open Trip Control
+              </button>
+              <button type="button" class="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="setScreen('analytics')">
+                View Analytics Layout
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-trip" class="app-screen">
+        <section class="relative mb-8 overflow-hidden rounded-[2rem] bg-slate-900 p-8 text-white shadow-soft">
+          <div class="absolute inset-0 opacity-40">
+            <img
+              id="hero-image"
+              class="h-full w-full object-cover"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtn285Z0iDf-bIT2dZVsa2RVYNdhFpI9WXjRMjFxCBk_ZQX8I2QqeqgHMYuH_Pd5Uk6i2SclOu3B9Y7zxSiVZaXSeJer_MfdeItVLXkLqzBI5o-JA2fvvZ852m74UZ1vapXFUsCH8hPyTcNQoR-3SfwjnhG9miXmCPaPsNZjFcD0-C57JrhzMjVmu1S9T150nP-enh4vo-FN-BUyqO3Os5NmlW32pHY0BQTMRSLZLS1dJmBgXY7L2CPeciEJG2OZnU3pVpD_t3xRg"
+              alt="Trip cover"
+            />
+          </div>
+          <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/45 to-transparent"></div>
+
+          <div class="relative z-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div class="mb-2 flex flex-wrap items-center gap-2">
+                <span id="trip-status-badge" class="rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.22em]">Ongoing</span>
+                <span class="flex items-center gap-1 text-sm font-medium text-slate-300">
+                  <span class="material-symbols-outlined text-sm">payments</span>
+                  <span id="trip-base-label">Base: --</span>
+                </span>
+              </div>
+              <h2 id="trip-hero-name" class="text-4xl font-extrabold tracking-tight md:text-5xl">Select a Trip</h2>
+              <p id="trip-hero-dates" class="mt-2 font-medium text-slate-300">Create or join a trip to populate this dashboard.</p>
+            </div>
+
+            <div class="rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">
+              <p class="mb-1 text-xs font-bold uppercase tracking-[0.22em] text-sky-300">Group Total Spend</p>
+              <div id="trip-total-spend" class="text-3xl font-black">--</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div class="flex flex-col justify-between rounded-[1.4rem] border border-slate-100 bg-white p-5 shadow-sm">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">My Total Share</span>
+              <h3 id="my-total-share" class="mt-1 text-2xl font-bold text-slate-900">--</h3>
+            </div>
+            <div class="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div id="my-share-progress" class="h-full rounded-full bg-sky-500" style="width:0%"></div>
+            </div>
+            <p id="my-share-caption" class="mt-2 text-[11px] text-slate-500">0% of total group spend</p>
+          </div>
+
+          <div class="rounded-[1.4rem] border border-slate-100 bg-white p-5 shadow-sm">
+            <span class="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Daily Average</span>
+            <h3 id="daily-average" class="mt-1 text-2xl font-bold text-slate-900">--</h3>
+            <div id="daily-trend" class="mt-2 flex items-center gap-1 text-xs font-bold text-slate-400">
+              <span class="material-symbols-outlined text-sm">calendar_today</span>
+              Waiting for spend data
+            </div>
+          </div>
+
+          <div id="balance-card" class="flex items-center justify-between rounded-[1.4rem] bg-sky-600 p-5 text-white shadow-lg shadow-sky-200">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-[0.22em] text-sky-100">Balance Status</span>
+              <h3 id="balance-title" class="mt-1 text-xl font-bold">Settled Up</h3>
+              <p id="balance-copy" class="mt-1 text-xs text-sky-100">You are all clear with the group</p>
+            </div>
+            <span id="balance-icon" class="material-symbols-outlined text-4xl opacity-60">verified</span>
+          </div>
+        </div>
+
+        <section class="mb-8 rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="mb-4 flex items-center justify-between gap-4">
+            <div>
+              <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-slate-400">Members</p>
+              <h3 class="text-lg font-extrabold tracking-tight text-slate-900">Trip Group</h3>
+            </div>
+            <button type="button" class="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="toggleDrawer(true)">
+              Manage Trips
+            </button>
+          </div>
+          <div id="member-strip" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"></div>
+        </section>
+
+        <section class="space-y-8">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-slate-400">Expenses</p>
+              <h3 class="text-2xl font-extrabold tracking-tight text-slate-900">Trip Details</h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" class="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="loadCurrentTripContext()">
+                Refresh
+              </button>
+              <button type="button" class="rounded-2xl bg-sky-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-200 transition-colors hover:bg-sky-700" onclick="setScreen('add')">
+                Add Expense
+              </button>
+            </div>
+          </div>
+          <div id="expense-groups" class="space-y-8"></div>
+        </section>
+      </section>
+
+      <section id="screen-add" class="app-screen hidden">
+        <div class="mb-8">
+          <h2 class="text-2xl font-extrabold tracking-tight text-slate-900">Add Expense</h2>
+          <p id="add-screen-caption" class="text-slate-500">Capture a new transaction for your current trip.</p>
+        </div>
+
+        <div class="space-y-6">
+          <section class="grid grid-cols-1 gap-4 md:grid-cols-12">
+            <div class="rounded-[1.4rem] border border-slate-100 bg-white p-6 shadow-sm md:col-span-8">
+              <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Amount</label>
+              <div class="flex items-end gap-3">
+                <span class="mb-1 text-3xl font-bold text-sky-600">$</span>
+                <input id="expense-amount" class="w-full border-none bg-transparent p-0 text-5xl font-black placeholder:text-slate-200 focus:ring-0" placeholder="0.00" step="0.01" type="number" />
+              </div>
+            </div>
+
+            <div class="rounded-[1.4rem] bg-sky-600 p-6 text-white shadow-sm md:col-span-4">
+              <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-sky-200">Currency</label>
+              <select id="expense-currency" class="w-full cursor-pointer appearance-none border-none bg-transparent p-0 text-2xl font-bold text-white focus:ring-0" onchange="toggleCurrencyCustomInput('expense-currency', 'expense-currency-custom'); updateFxPreview()"></select>
+              <input id="expense-currency-custom" class="mt-3 hidden w-full rounded-xl border-none bg-white/10 px-3 py-2 text-sm font-semibold uppercase text-white placeholder:text-sky-100/70 focus:ring-2 focus:ring-white/40" placeholder="Custom code" />
+            </div>
+          </section>
+
+          <section class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="rounded-[1.4rem] border border-slate-100 bg-white p-4 shadow-sm">
+              <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                  <div class="rounded-2xl bg-sky-50 p-2">
+                    <span class="material-symbols-outlined text-sky-600">currency_exchange</span>
+                  </div>
+                  <div>
+                    <p id="conversion-label" class="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Base Conversion</p>
+                    <p id="conversion-preview" class="text-lg font-semibold text-slate-700">Select a trip to calculate conversion</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 rounded-xl bg-slate-50 p-1">
+                  <button id="fx-mode-auto" type="button" class="rounded-lg bg-white px-3 py-1 text-xs font-bold shadow-sm" onclick="setFxMode('auto')">Auto</button>
+                  <button id="fx-mode-manual" type="button" class="rounded-lg px-3 py-1 text-xs font-bold text-slate-400" onclick="setFxMode('manual')">Manual</button>
+                </div>
+              </div>
+              <div id="manual-fx-wrap" class="mt-4 hidden">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Manual FX Rate to Base</label>
+                <input id="expense-fx" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" placeholder="Example: 32.45" step="0.0001" type="number" />
+              </div>
+              <p id="fx-hint" class="mt-3 text-sm font-medium text-slate-500">Built-in rates are used automatically when the currency pair is known.</p>
+            </div>
+
+            <div class="rounded-[1.4rem] border border-slate-100 bg-white p-4 shadow-sm">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Paid By</label>
+                  <select id="expense-paid-by" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500"></select>
+                </div>
+                <div>
+                  <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Expense Time</label>
+                  <input id="expense-time" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" type="datetime-local" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <label class="mb-4 block px-1 text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Category</label>
+            <div id="category-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6"></div>
+          </section>
+
+          <section class="rounded-[1.6rem] border border-slate-100 bg-white p-6 shadow-sm">
+            <div class="mb-6 flex items-center justify-between">
+              <h3 class="font-bold text-slate-800">Split Expense</h3>
+              <div class="flex rounded-xl bg-slate-100 p-1">
+                <button id="split-mode-equal" type="button" class="rounded-lg bg-white px-4 py-1.5 text-xs font-bold shadow-sm" onclick="setAddSplitMode('equal')">Equal</button>
+                <button id="split-mode-custom" type="button" class="rounded-lg px-4 py-1.5 text-xs font-bold text-slate-400" onclick="setAddSplitMode('custom')">Custom</button>
+              </div>
+            </div>
+
+            <div id="split-member-list" class="space-y-3"></div>
+            <div id="split-custom-form" class="mt-4 hidden space-y-3"></div>
+            <div id="split-custom-warning" class="mt-3 hidden text-sm font-semibold text-rose-600"></div>
+            <textarea id="split-custom-json" class="hidden"></textarea>
+          </section>
+
+          <section>
+            <div class="relative">
+              <textarea id="expense-note" class="min-h-[120px] w-full rounded-[1.4rem] border border-slate-100 bg-white p-4 placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20" placeholder="Add a note or description..."></textarea>
+              <div class="pointer-events-none absolute bottom-4 right-4 text-slate-300">
+                <span class="material-symbols-outlined">edit_note</span>
+              </div>
+            </div>
+          </section>
+
+          <button type="button" class="flex w-full items-center justify-center gap-2 rounded-[1.4rem] bg-sky-600 py-4 font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.98]" onclick="createExpense()">
+            <span class="material-symbols-outlined">add_circle</span>
+            Add Expense
+          </button>
+        </div>
+      </section>
+
+      <section id="screen-analytics" class="app-screen hidden">
+        <div class="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 class="text-2xl font-extrabold tracking-tight text-slate-900">Analytics Summary</h2>
+            <p id="analytics-caption" class="font-medium text-slate-500">Select a trip to inspect group spending.</p>
+          </div>
+          <button type="button" class="flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 font-semibold text-white shadow-md shadow-sky-200 transition-all hover:bg-sky-700" onclick="exportReport()">
+            <span class="material-symbols-outlined">file_download</span>
+            <span>Export Report</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-12">
+          <div class="rounded-[1.6rem] border border-slate-200 bg-white p-6 shadow-sm md:col-span-7">
+            <div class="mb-6 flex items-center justify-between">
+              <h3 class="font-bold text-slate-800">Spending by Category</h3>
+              <span class="material-symbols-outlined text-slate-400">pie_chart</span>
+            </div>
+
+            <div class="flex flex-col items-center gap-8 sm:flex-row">
+              <div class="chart-donut h-48 w-48 border-[16px] border-slate-100">
+                <div class="chart-donut-label">
+                  <span id="analytics-total" class="block text-2xl font-black text-slate-900">$0</span>
+                  <span class="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Total Spent</span>
+                </div>
+              </div>
+
+              <div id="category-legend" class="w-full flex-1 space-y-3"></div>
+            </div>
+          </div>
+
+          <div class="flex flex-col rounded-[1.6rem] border border-slate-200 bg-white p-6 shadow-sm md:col-span-5">
+            <h3 class="mb-6 font-bold text-slate-800">High Impact</h3>
+            <div id="high-impact-list" class="flex-1 space-y-4"></div>
+          </div>
+
+          <div class="rounded-[1.6rem] border border-slate-200 bg-white p-6 shadow-sm md:col-span-12 lg:col-span-8">
+            <div class="mb-8 flex items-center justify-between">
+              <h3 class="font-bold text-slate-800">Spending by Member</h3>
+              <div class="flex items-center gap-2">
+                <span class="h-2.5 w-2.5 rounded-full bg-sky-500"></span>
+                <span class="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Contribution</span>
+              </div>
+            </div>
+            <div id="member-bars" class="flex h-56 items-end justify-between gap-4 px-2"></div>
+          </div>
+
+          <div class="rounded-[1.6rem] bg-sky-700 p-6 text-white shadow-soft md:col-span-12 lg:col-span-4">
+            <div class="mb-6 flex items-center gap-2">
+              <span class="material-symbols-outlined">handshake</span>
+              <h3 class="font-bold">Settle Up</h3>
+            </div>
+            <div id="settle-up-list" class="space-y-4"></div>
+            <button type="button" class="mt-6 w-full rounded-xl bg-white/20 py-3 text-sm font-bold transition-colors hover:bg-white/30" onclick="showToast('Settlement plan is shown inline below.', 'info')">
+              View All Debts
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="safe-bottom-nav fixed bottom-0 left-0 z-30 flex w-full justify-around border-t border-slate-200 bg-white/90 px-6 pt-3 backdrop-blur-md shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.08)]">
+      <button type="button" class="nav-item flex flex-col items-center justify-center px-4 py-1.5 text-slate-500 transition-colors hover:text-sky-500" data-screen="trip" onclick="setScreen('trip')">
+        <span class="material-symbols-outlined mb-1">dashboard</span>
+        <span class="text-[11px] font-semibold uppercase tracking-wide">Dashboard</span>
+      </button>
+      <button type="button" class="nav-item flex flex-col items-center justify-center px-4 py-1.5 text-slate-500 transition-colors hover:text-sky-500" data-screen="add" onclick="setScreen('add')">
+        <span class="material-symbols-outlined mb-1">add_circle</span>
+        <span class="text-[11px] font-semibold uppercase tracking-wide">Add</span>
+      </button>
+      <button type="button" class="nav-item flex flex-col items-center justify-center px-4 py-1.5 text-slate-500 transition-colors hover:text-sky-500" data-screen="analytics" onclick="setScreen('analytics')">
+        <span class="material-symbols-outlined mb-1">analytics</span>
+        <span class="text-[11px] font-semibold uppercase tracking-wide">Analytics</span>
+      </button>
+    </nav>
+  </div>
+
+  <div id="expense-modal" class="pointer-events-none fixed inset-0 z-[70] hidden">
+    <div class="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onclick="closeExpenseModal()"></div>
+    <div class="modal-transition absolute inset-x-0 bottom-0 mx-auto max-h-[90vh] w-full max-w-2xl translate-y-6 overflow-y-auto rounded-t-[2rem] bg-white p-6 opacity-0 shadow-2xl md:bottom-auto md:top-24 md:rounded-[2rem]">
+      <div class="mb-5 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-slate-400">Expense</p>
+          <h3 class="text-2xl font-extrabold tracking-tight text-slate-900">Edit Detail</h3>
+        </div>
+        <button type="button" class="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900" onclick="closeExpenseModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div class="md:col-span-2">
+          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Category / Title</label>
+          <input id="detail-name" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" />
+        </div>
+        <div>
+          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Amount</label>
+          <input id="detail-amount" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" step="0.01" type="number" />
+        </div>
+        <div>
+          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Paid By</label>
+          <select id="detail-paid-by" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500"></select>
+        </div>
+        <div>
+          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Expense Time</label>
+          <input id="detail-time" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" type="datetime-local" />
+        </div>
+        <div>
+          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Split Mode</label>
+          <select id="detail-split-mode" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" onchange="renderDetailSplitFields()">
+            <option value="equal">Equal</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div class="md:col-span-2">
+          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Participants</label>
+          <div id="detail-split-members" class="grid grid-cols-1 gap-3 sm:grid-cols-2"></div>
+        </div>
+        <div id="detail-custom-wrap" class="hidden md:col-span-2">
+          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Custom Split JSON</label>
+          <textarea id="detail-split-custom" class="min-h-[140px] w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm ring-0 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"></textarea>
+          <p class="mt-2 text-xs font-medium text-slate-500">Amounts must match the expense total and use member UUID keys.</p>
+        </div>
+        <div class="md:col-span-2">
+          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Note</label>
+          <textarea id="detail-note" class="min-h-[100px] w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm ring-0 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"></textarea>
+        </div>
+      </div>
+
+      <button type="button" class="mt-6 flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-sky-600 py-4 font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.98]" onclick="saveExpenseDetail()">
+        <span class="material-symbols-outlined">save</span>
+        Save Changes
+      </button>
     </div>
   </div>
 
   <script>
-    const KNOWN_CURRENCIES = ['TWD', 'JPY', 'EUR', 'USD', 'GBP', 'CNY'];
+    const KNOWN_CURRENCIES = ["TWD", "JPY", "EUR", "USD", "GBP", "CNY"];
     const USD_VALUE_BY_CURRENCY = { TWD: 0.031, JPY: 0.0067, EUR: 1.08, USD: 1, GBP: 1.27, CNY: 0.139 };
+    const CURRENCY_SYMBOLS = {
+      USD: "$",
+      EUR: "\u20AC",
+      GBP: "\u00A3",
+      JPY: "\u00A5",
+      CNY: "\u00A5",
+      TWD: "NT$",
+    };
+    const HERO_IMAGES = [
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuAtn285Z0iDf-bIT2dZVsa2RVYNdhFpI9WXjRMjFxCBk_ZQX8I2QqeqgHMYuH_Pd5Uk6i2SclOu3B9Y7zxSiVZaXSeJer_MfdeItVLXkLqzBI5o-JA2fvvZ852m74UZ1vapXFUsCH8hPyTcNQoR-3SfwjnhG9miXmCPaPsNZjFcD0-C57JrhzMjVmu1S9T150nP-enh4vo-FN-BUyqO3Os5NmlW32pHY0BQTMRSLZLS1dJmBgXY7L2CPeciEJG2OZnU3pVpD_t3xRg",
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuC6tEFxUl6xufBZIgWYsLSZ7UvZC_f4FYetlZ-3joDGwCQuVHgwHi6htpTGEBdSSnXtqj1NsodtjPmNenShgaIrfEtFSAzen3NYWsqj13a2oaOteTVAxf9CYlkGHj62HKQarIUqRLVfXtiZpcEmuFh1jNO4-Wr79BaaV6zzNDtBy3fOZydWxjRtPGuQBpayGmD9EVlYIz2MzHjTjByD20iIAQF5mz53Lh6AVDnfJAUUkwoGxWiMDKnEeyjfIdPWKgqYtgB5kDIbQRY",
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuA1bbQDfMYOiV0mPXZiqhVTuVsJio1KqNaEkHMBN811gRecFP7hJJFS2H9wJ53j1F_2GpLIIgOw6zdqpSNJHiUKQUUBTSs7GMs4gNNAVpf0oqpk_svy82TTeNcvkCgpjddbrk8emrezd5hK5Iwimt5nHdFm15qpc4uunt3SNOTqAwX0inpoIUG4w6htE0JxcC3sQZ1-jO4gXsJ1HX18JZEQtGwSMmJ3x6uBHQ5PkKAkM4OJVgcfMK7laooX4_qp0h9YxJwP_EhpZYs",
+    ];
+    const CATEGORY_META = {
+      food: { label: "Food", icon: "restaurant", theme: "sky", listBg: "bg-orange-100 text-orange-600", chart: "#34d399" },
+      transport: { label: "Transport", icon: "directions_car", theme: "sky", listBg: "bg-sky-100 text-sky-600", chart: "#0ea5e9" },
+      lodging: { label: "Lodging", icon: "bed", theme: "violet", listBg: "bg-violet-100 text-violet-600", chart: "#8b5cf6" },
+      activities: { label: "Activities", icon: "downhill_skiing", theme: "amber", listBg: "bg-amber-100 text-amber-600", chart: "#f59e0b" },
+      shopping: { label: "Shopping", icon: "shopping_bag", theme: "emerald", listBg: "bg-emerald-100 text-emerald-600", chart: "#10b981" },
+      others: { label: "Others", icon: "more_horiz", theme: "slate", listBg: "bg-slate-100 text-slate-600", chart: "#94a3b8" },
+    };
+    const MEMBER_THEMES = [
+      "bg-sky-100 text-sky-700",
+      "bg-emerald-100 text-emerald-700",
+      "bg-violet-100 text-violet-700",
+      "bg-amber-100 text-amber-700",
+      "bg-rose-100 text-rose-700",
+      "bg-cyan-100 text-cyan-700",
+    ];
 
     const state = {
-      token: localStorage.getItem('tripwallet_token') || '',
+      token: localStorage.getItem("tripwallet_token") || "",
+      authMode: "login",
+      activeScreen: "trip",
+      addSplitMode: "equal",
+      fxMode: "auto",
+      selectedCategory: "food",
       trips: [],
-      members: [],
-      me: null,
-      expenses: [],
-      selectedExpenseId: null,
       selectedTrip: null,
+      me: null,
+      members: [],
+      expenses: [],
+      summary: null,
+      selectedExpenseId: null,
       customSplitManualByUserId: {},
       customSplitRenderedUserIds: [],
     };
 
-    function log(msg) {
-      const el = document.getElementById('logs');
-      el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}\n` + el.textContent;
+    function el(id) {
+      return document.getElementById(id);
     }
 
-    function setToken(token) {
-      state.token = token;
-      localStorage.setItem('tripwallet_token', token);
-      document.getElementById('token-state').textContent = token ? 'set' : 'none';
-      document.getElementById('trip-card').classList.toggle('hidden', !token);
-      document.getElementById('expense-card').classList.toggle('hidden', !token);
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
-
-    function renderCurrencyOptions(selectId, selected = 'USD') {
-      const select = document.getElementById(selectId);
-      select.innerHTML = `
-        ${KNOWN_CURRENCIES.map(code => `<option value="${code}">${code}</option>`).join('')}
-        <option value="OTHER">Other (type manually)</option>
-      `;
-      if ([...KNOWN_CURRENCIES, 'OTHER'].includes(selected)) select.value = selected;
+    function formatNumber(value, maximumFractionDigits = 2) {
+      const number = Number(value || 0);
+      const isIntegerLike = Math.abs(number - Math.round(number)) < 0.000001;
+      return new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: isIntegerLike ? 0 : 2,
+        maximumFractionDigits,
+      }).format(number);
     }
 
-    function toggleCurrencyCustomInput(selectId, customInputId) {
-      const select = document.getElementById(selectId);
-      const custom = document.getElementById(customInputId);
-      const isOther = select.value === 'OTHER';
-      custom.classList.toggle('hidden', !isOther);
-      if (!isOther) custom.value = '';
+    function formatMoney(currency, amount) {
+      const symbol = CURRENCY_SYMBOLS[currency];
+      const formatted = formatNumber(amount, 2);
+      return symbol ? `${symbol}${formatted}` : `${currency} ${formatted}`;
     }
 
-    function getCurrencyValue(selectId, customInputId) {
-      const selectVal = document.getElementById(selectId).value;
-      if (selectVal !== 'OTHER') return selectVal;
-      return (document.getElementById(customInputId).value || '').trim().toUpperCase();
+    function initials(name) {
+      return String(name || "?")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join("");
+    }
+
+    function hashString(value) {
+      return Array.from(String(value || "")).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    }
+
+    function memberTheme(key) {
+      return MEMBER_THEMES[hashString(key) % MEMBER_THEMES.length];
+    }
+
+    function memberById(userId) {
+      return state.members.find((member) => member.user_id === userId);
+    }
+
+    function userNameById(userId) {
+      return memberById(userId)?.display_name || (state.me && state.me.id === userId ? state.me.display_name : "Unknown");
+    }
+
+    function categoryMeta(rawCategory) {
+      const key = String(rawCategory || "others").trim().toLowerCase();
+      return CATEGORY_META[key] || { label: rawCategory || "Others", icon: "payments", listBg: "bg-slate-100 text-slate-600", chart: "#64748b" };
     }
 
     function latestFx(source, target) {
       if (!source || !target) return null;
-      const s = USD_VALUE_BY_CURRENCY[source];
-      const t = USD_VALUE_BY_CURRENCY[target];
-      if (!s || !t) return null;
-      return s / t;
+      const sourceToUsd = USD_VALUE_BY_CURRENCY[source];
+      const targetToUsd = USD_VALUE_BY_CURRENCY[target];
+      if (!sourceToUsd || !targetToUsd) return null;
+      return sourceToUsd / targetToUsd;
     }
 
-    function updateAutoFxHint() {
-      const source = getCurrencyValue('expense-currency', 'expense-currency-custom');
-      const target = getCurrencyValue('expense-target-currency', 'expense-target-currency-custom');
-      const fxHint = document.getElementById('fx-hint');
-      const fxInput = document.getElementById('expense-fx');
-
-      if (!source || !target) {
-        fxHint.textContent = 'Choose both original and target currencies to show a default exchange rate.';
-        fxInput.value = '';
-        return;
+    function renderCurrencyOptions(selectId, selected = "USD") {
+      const select = el(selectId);
+      select.innerHTML = `
+        ${KNOWN_CURRENCIES.map((code) => `<option value="${code}">${code}</option>`).join("")}
+        <option value="OTHER">Other</option>
+      `;
+      if ([...KNOWN_CURRENCIES, "OTHER"].includes(selected)) {
+        select.value = selected;
       }
-
-      if (source === target) {
-        fxInput.value = '1.000000';
-        fxHint.textContent = 'Same currency selected. Default rate is 1.000000 (editable).';
-        return;
-      }
-
-      const fx = latestFx(source, target);
-      if (!fx) {
-        fxHint.textContent = `No built-in latest rate for ${source}->${target}. Please type exchange rate manually.`;
-        fxInput.value = '';
-        return;
-      }
-      fxInput.value = fx.toFixed(6);
-      fxHint.textContent = `Default rate ${source}->${target}: ${fx.toFixed(6)} (editable)`;
     }
 
-    function initCurrencyControls() {
-      renderCurrencyOptions('trip-base', 'USD');
-      renderCurrencyOptions('expense-currency', 'USD');
-      renderCurrencyOptions('expense-target-currency', 'USD');
-      toggleCurrencyCustomInput('trip-base', 'trip-base-custom');
-      toggleCurrencyCustomInput('expense-currency', 'expense-currency-custom');
-      toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom');
+    function toggleCurrencyCustomInput(selectId, inputId) {
+      const isOther = el(selectId).value === "OTHER";
+      el(inputId).classList.toggle("hidden", !isOther);
+      if (!isOther) el(inputId).value = "";
     }
 
-    function showAuthNotice(message, kind = 'success') {
-      const el = document.getElementById('auth-notice');
-      el.textContent = message;
-      el.classList.remove('hidden', 'success', 'error');
-      el.classList.add(kind);
+    function getCurrencyValue(selectId, inputId) {
+      const selectValue = el(selectId).value;
+      if (selectValue !== "OTHER") return selectValue;
+      return el(inputId).value.trim().toUpperCase();
     }
 
-    function formatDateBlock(value) {
-      const date = new Date(value);
-      return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).format(date);
+    function toDateInput(value) {
+      if (!value) return "";
+      return new Date(value).toISOString().slice(0, 10);
     }
 
     function formatDateTimeInput(value) {
-      const d = new Date(value);
-      const tz = d.getTimezoneOffset();
-      const local = new Date(d.getTime() - tz * 60000);
+      const date = new Date(value);
+      const offset = date.getTimezoneOffset();
+      const local = new Date(date.getTime() - offset * 60000);
       return local.toISOString().slice(0, 16);
     }
 
-    function formatAmount(value) {
-      const num = Number(value);
-      if (Number.isFinite(num)) return num.toFixed(2);
-      return String(value);
+    function formatTripDates(trip) {
+      if (!trip || (!trip.start_date && !trip.end_date)) return "Travel dates not set";
+      const formatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
+      if (trip.start_date && trip.end_date) {
+        return `${formatter.format(new Date(trip.start_date))} - ${formatter.format(new Date(trip.end_date))}`;
+      }
+      return trip.start_date ? `Starts ${formatter.format(new Date(trip.start_date))}` : `Ends ${formatter.format(new Date(trip.end_date))}`;
     }
 
-    function formatMoney(currency, amount) {
-      return `${currency} ${formatAmount(amount)}`;
+    function formatSectionDate(dateKey) {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const target = new Date(`${dateKey}T00:00:00`);
+      const diff = Math.round((today - target) / 86400000);
+      if (diff === 0) return "Today";
+      if (diff === 1) return "Yesterday";
+      return new Intl.DateTimeFormat(undefined, { month: "long", day: "numeric", year: "numeric" }).format(target);
     }
 
-    function renderOwnerOptions() {
-      const options = state.members.map(m => `<option value="${m.user_id}">${m.display_name}</option>`).join('');
-      document.getElementById('expense-owner').innerHTML = options;
-      document.getElementById('detail-owner').innerHTML = options;
-      if (state.me) document.getElementById('expense-owner').value = state.me.id;
+    function tripDurationDays(trip) {
+      if (!trip || !trip.start_date || !trip.end_date) {
+        const days = Object.keys(state.summary?.total_spending_by_day || {}).length;
+        return Math.max(days, 1);
+      }
+      const start = new Date(trip.start_date);
+      const end = new Date(trip.end_date);
+      const diff = Math.round((end - start) / 86400000) + 1;
+      return Math.max(diff, 1);
     }
 
-    function renderSplitFields() {
-      const mode = document.getElementById('split-mode').value;
-      const equalWrap = document.getElementById('split-equal-members');
-      const custom = document.getElementById('split-custom');
-      const customForm = document.getElementById('split-custom-form');
-      const customHint = document.getElementById('split-custom-hint');
-      equalWrap.classList.toggle('hidden', mode !== 'equal');
-      custom.classList.toggle('hidden', mode !== 'custom');
-      customForm.classList.toggle('hidden', mode !== 'custom');
-      customHint.classList.toggle('hidden', mode !== 'custom');
-      equalWrap.innerHTML = state.members.map(m => `<label><input type="checkbox" class="split-member" value="${m.user_id}" checked/>${m.display_name}</label>`).join('');
+    function toCents(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return null;
+      return Math.round(number * 100);
+    }
 
-      state.customSplitManualByUserId = {};
-      state.customSplitRenderedUserIds = [];
-      document.querySelectorAll('.split-member').forEach((checkbox) => {
-        checkbox.addEventListener('change', () => {
+    function roundCurrency(value) {
+      return Math.round(Number(value || 0) * 100) / 100;
+    }
+
+    function setAuthMode(mode) {
+      state.authMode = mode;
+      const isSignup = mode === "signup";
+      el("signup-name-wrap").classList.toggle("hidden", !isSignup);
+      el("auth-submit-label").textContent = isSignup ? "Create Account" : "Login";
+      el("auth-switch-copy").textContent = isSignup ? "Already have an account?" : "New to TripWallet?";
+      el("auth-switch-action").textContent = isSignup ? "Login" : "Sign Up";
+      el("auth-login-tab").className = `rounded-xl px-4 py-2 transition-colors ${isSignup ? "text-slate-500" : "bg-white text-sky-700 shadow-sm"}`;
+      el("auth-signup-tab").className = `rounded-xl px-4 py-2 transition-colors ${isSignup ? "bg-white text-sky-700 shadow-sm" : "text-slate-500"}`;
+      el("auth-feedback").classList.add("hidden");
+    }
+
+    function toggleAuthMode() {
+      setAuthMode(state.authMode === "login" ? "signup" : "login");
+    }
+
+    function useDemoPassword() {
+      el("auth-password").value = "123456";
+    }
+
+    function setToken(token) {
+      state.token = token || "";
+      localStorage.setItem("tripwallet_token", state.token);
+      el("login-screen").classList.toggle("hidden", Boolean(state.token));
+      el("app-shell").classList.toggle("hidden", !state.token);
+      if (!state.token) {
+        state.me = null;
+        state.trips = [];
+        state.selectedTrip = null;
+        state.members = [];
+        state.expenses = [];
+        state.summary = null;
+      }
+    }
+
+    function showAuthFeedback(message, kind = "success") {
+      const box = el("auth-feedback");
+      box.textContent = message;
+      box.className = `mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+        kind === "error"
+          ? "border-rose-200 bg-rose-50 text-rose-700"
+          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+      }`;
+    }
+
+    function showToast(message, kind = "success") {
+      const toast = document.createElement("div");
+      const palette = {
+        success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+        error: "border-rose-200 bg-rose-50 text-rose-700",
+        info: "border-sky-200 bg-sky-50 text-sky-700",
+      };
+      toast.className = `pointer-events-auto rounded-2xl border px-4 py-3 text-sm font-semibold shadow-lg ${palette[kind] || palette.info}`;
+      toast.textContent = message;
+      el("toast-root").appendChild(toast);
+      setTimeout(() => toast.remove(), 3200);
+    }
+
+    async function api(path, method = "GET", body) {
+      const headers = { "Content-Type": "application/json" };
+      if (state.token) headers.Authorization = `Bearer ${state.token}`;
+      const response = await fetch(path, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const text = await response.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { raw: text };
+      }
+      if (!response.ok) throw new Error(data.detail || data.raw || `${response.status}`);
+      return data;
+    }
+
+    async function handleAuthSubmit(event) {
+      event.preventDefault();
+      try {
+        const email = el("auth-email").value.trim();
+        const password = el("auth-password").value;
+        if (state.authMode === "signup") {
+          const displayName = el("signup-name").value.trim();
+          const data = await api("/auth/signup", "POST", {
+            email,
+            password,
+            display_name: displayName,
+          });
+          setToken(data.access_token);
+          await initializeApp();
+          showToast("Account created.", "success");
+        } else {
+          const data = await api("/auth/login", "POST", { email, password });
+          setToken(data.access_token);
+          await initializeApp();
+          showToast("Welcome back.", "success");
+        }
+      } catch (error) {
+        showAuthFeedback(error.message || "Authentication failed.", "error");
+      }
+    }
+
+    async function loginWithPreset(email) {
+      try {
+        setAuthMode("login");
+        el("auth-email").value = email;
+        el("auth-password").value = "123456";
+        const data = await api("/auth/login", "POST", { email, password: "123456" });
+        setToken(data.access_token);
+        await initializeApp();
+        showToast("Welcome back.", "success");
+      } catch (error) {
+        showAuthFeedback(error.message || "Authentication failed.", "error");
+      }
+    }
+
+    function toggleDrawer(shouldOpen) {
+      el("drawer-overlay").classList.toggle("hidden", !shouldOpen);
+      el("trip-drawer").classList.toggle("-translate-x-full", !shouldOpen);
+    }
+
+    function setScreen(screen) {
+      state.activeScreen = screen;
+      document.querySelectorAll(".nav-item").forEach((button) => {
+        const active = button.dataset.screen === screen;
+        button.className = `nav-item flex flex-col items-center justify-center px-4 py-1.5 transition-colors ${
+          active ? "rounded-xl bg-sky-100 text-sky-700" : "text-slate-500 hover:text-sky-500"
+        }`;
+      });
+      renderTripPresence();
+    }
+
+    function renderTripPresence() {
+      const hasTrip = Boolean(state.selectedTrip);
+      el("no-trip-state").classList.toggle("hidden", hasTrip);
+      document.querySelectorAll(".app-screen").forEach((section) => section.classList.add("hidden"));
+      if (!hasTrip) return;
+      el(`screen-${state.activeScreen}`).classList.remove("hidden");
+    }
+
+    function renderHeader() {
+      el("header-title").textContent = state.selectedTrip ? state.selectedTrip.name : "Dashboard";
+      if (state.me) {
+        el("header-user-avatar").textContent = initials(state.me.display_name);
+        el("header-user-name").textContent = state.me.display_name;
+        el("drawer-user-avatar").textContent = initials(state.me.display_name);
+        el("drawer-user-name").textContent = state.me.display_name;
+        el("drawer-user-email").textContent = state.me.email;
+      }
+    }
+
+    function renderTripList() {
+      if (!state.trips.length) {
+        el("trip-list").innerHTML = `
+          <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-500">
+            No trips yet. Create one above or join with an invite code.
+          </div>
+        `;
+        return;
+      }
+      el("trip-list").innerHTML = state.trips
+        .map((trip) => {
+          const active = state.selectedTrip && state.selectedTrip.id === trip.id;
+          return `
+            <button
+              type="button"
+              class="w-full rounded-[1.4rem] border px-4 py-4 text-left transition-all ${
+                active
+                  ? "border-sky-200 bg-sky-50 shadow-sm"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+              }"
+              onclick="selectTrip('${trip.id}')"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="truncate font-bold text-slate-900">${escapeHtml(trip.name)}</p>
+                  <p class="mt-1 text-xs font-medium text-slate-500">${escapeHtml(formatTripDates(trip))}</p>
+                </div>
+                <span class="rounded-full px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.22em] ${
+                  active ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-500"
+                }">${escapeHtml(trip.base_currency)}</span>
+              </div>
+            </button>
+          `;
+        })
+        .join("");
+    }
+
+    async function createTrip() {
+      try {
+        const payload = {
+          name: el("trip-name").value.trim(),
+          base_currency: getCurrencyValue("trip-base", "trip-base-custom"),
+        };
+        if (el("trip-start").value) payload.start_date = el("trip-start").value;
+        if (el("trip-end").value) payload.end_date = el("trip-end").value;
+        const trip = await api("/trips", "POST", payload);
+        showToast("Trip created.", "success");
+        el("trip-name").value = "";
+        el("trip-start").value = "";
+        el("trip-end").value = "";
+        renderCurrencyOptions("trip-base", "USD");
+        toggleCurrencyCustomInput("trip-base", "trip-base-custom");
+        await loadTrips(false);
+        await selectTrip(trip.id);
+        setScreen("trip");
+      } catch (error) {
+        showToast(error.message || "Unable to create trip.", "error");
+      }
+    }
+
+    async function joinTrip() {
+      try {
+        const code = el("join-code").value.trim();
+        await api("/trips/join", "POST", { invite_code: code });
+        el("join-code").value = "";
+        showToast("Trip joined.", "success");
+        await loadTrips();
+      } catch (error) {
+        showToast(error.message || "Unable to join trip.", "error");
+      }
+    }
+
+    async function createInvite() {
+      try {
+        if (!state.selectedTrip) throw new Error("Select a trip first.");
+        const result = await api(`/trips/${state.selectedTrip.id}/invite`, "POST", {
+          expires_in_hours: Number(el("invite-hours").value || 24),
+        });
+        el("invite-result").innerHTML = `
+          <div class="font-bold">Code: ${escapeHtml(result.invite_code)}</div>
+          <div class="mt-1 text-xs text-slate-300">Expires: ${escapeHtml(result.expires_at || "Never")}</div>
+        `;
+        showToast("Invite generated.", "success");
+      } catch (error) {
+        showToast(error.message || "Unable to create invite.", "error");
+      }
+    }
+
+    async function loadTrips(autoSelect = true) {
+      state.trips = await api("/trips");
+      renderTripList();
+      if (!state.trips.length) {
+        state.selectedTrip = null;
+        state.members = [];
+        state.expenses = [];
+        state.summary = null;
+        renderAll();
+        return;
+      }
+
+      if (!autoSelect) {
+        renderAll();
+        return;
+      }
+
+      const currentId = state.selectedTrip?.id;
+      const nextId = state.trips.some((trip) => trip.id === currentId) ? currentId : state.trips[0].id;
+      await selectTrip(nextId, true);
+    }
+
+    async function selectTrip(id, quiet = false) {
+      const nextTrip = state.trips.find((trip) => trip.id === id);
+      if (!nextTrip) return;
+      state.selectedTrip = nextTrip;
+      syncExpenseCurrencyDefault();
+      await loadCurrentTripContext();
+      renderTripList();
+      renderAll();
+      toggleDrawer(false);
+      if (!quiet) showToast(`Selected ${nextTrip.name}.`, "info");
+    }
+
+    async function loadCurrentTripContext() {
+      if (!state.selectedTrip) {
+        renderAll();
+        return;
+      }
+      const tripId = state.selectedTrip.id;
+      const [members, expenses, summary] = await Promise.all([
+        api(`/trips/${tripId}/members`),
+        api(`/trips/${tripId}/expenses`),
+        api(`/trips/${tripId}/analytics/summary`),
+      ]);
+      state.members = members;
+      state.expenses = expenses;
+      state.summary = summary;
+      renderAll();
+    }
+
+    function renderAll() {
+      renderHeader();
+      renderTripPresence();
+      renderTripHero();
+      renderMembers();
+      renderExpensePaidByOptions();
+      renderAddCategoryGrid();
+      renderAddSplitMembers();
+      renderExpenseGroups();
+      renderAnalytics();
+      updateFxPreview();
+      updateInvitePanel();
+    }
+
+    function renderTripHero() {
+      const trip = state.selectedTrip;
+      if (!trip) {
+        el("trip-hero-name").textContent = "Select a Trip";
+        el("trip-hero-dates").textContent = "Create or join a trip to populate this dashboard.";
+        el("trip-base-label").textContent = "Base: --";
+        el("trip-total-spend").textContent = "--";
+        return;
+      }
+
+      const total = Number(state.summary?.total_spending_in_base || 0);
+      const myShare = computeMyShareBase();
+      const sharePct = total > 0 ? Math.min((myShare / total) * 100, 100) : 0;
+      const duration = tripDurationDays(trip);
+      const dailyAverage = duration > 0 ? total / duration : 0;
+      const { trendText, trendClass, trendIcon } = computeDayTrend();
+      const { title, copy, icon, cardClass } = computeBalanceCard();
+
+      el("hero-image").src = HERO_IMAGES[hashString(trip.id) % HERO_IMAGES.length];
+      el("trip-status-badge").textContent = trip.status === "archived" ? "Archived" : "Ongoing";
+      el("trip-hero-name").textContent = trip.name;
+      el("trip-hero-dates").textContent = formatTripDates(trip);
+      el("trip-base-label").textContent = `Base: ${trip.base_currency}`;
+      el("trip-total-spend").textContent = formatMoney(trip.base_currency, total);
+      el("my-total-share").textContent = formatMoney(trip.base_currency, myShare);
+      el("my-share-progress").style.width = `${sharePct.toFixed(1)}%`;
+      el("my-share-caption").textContent = `${sharePct.toFixed(1)}% of total group spend`;
+      el("daily-average").textContent = formatMoney(trip.base_currency, dailyAverage);
+      el("daily-trend").className = `mt-2 flex items-center gap-1 text-xs font-bold ${trendClass}`;
+      el("daily-trend").innerHTML = `<span class="material-symbols-outlined text-sm">${trendIcon}</span>${escapeHtml(trendText)}`;
+      el("balance-card").className = `flex items-center justify-between rounded-[1.4rem] p-5 text-white shadow-lg ${cardClass}`;
+      el("balance-title").textContent = title;
+      el("balance-copy").textContent = copy;
+      el("balance-icon").textContent = icon;
+      el("selected-trip-caption").textContent = `${trip.name} (${trip.base_currency})`;
+      el("add-screen-caption").textContent = `Capture a new transaction for ${trip.name}.`;
+      el("analytics-caption").textContent = trip.name;
+    }
+
+    function computeDayTrend() {
+      const byDay = state.summary?.total_spending_by_day || {};
+      const days = Object.keys(byDay).sort();
+      if (!days.length) return { trendText: "Waiting for spend data", trendClass: "text-slate-400", trendIcon: "calendar_today" };
+      const lastDay = Number(byDay[days[days.length - 1]] || 0);
+      const previousDay = days.length > 1 ? Number(byDay[days[days.length - 2]] || 0) : 0;
+      if (days.length === 1) return { trendText: "First spend day recorded", trendClass: "text-sky-600", trendIcon: "timeline" };
+      if (previousDay === 0) return { trendText: "New activity vs. previous day", trendClass: "text-sky-600", trendIcon: "trending_up" };
+      const delta = ((lastDay - previousDay) / previousDay) * 100;
+      const lessOrMore = delta >= 0 ? "more" : "less";
+      return {
+        trendText: `${Math.abs(delta).toFixed(0)}% ${lessOrMore} than previous day`,
+        trendClass: delta >= 0 ? "text-rose-500" : "text-emerald-500",
+        trendIcon: delta >= 0 ? "trending_up" : "trending_down",
+      };
+    }
+
+    function computeShareBase(expense, userId) {
+      if (!userId) return 0;
+      if (expense.split_mode === "custom") {
+        const custom = expense.custom_split_amounts || {};
+        const originalShare = Number(custom[userId] ?? custom[String(userId)] ?? 0);
+        return originalShare * Number(expense.fx_rate_to_base || 1);
+      }
+      const participants = expense.split_with_user_ids || [];
+      if (!participants.includes(userId) || !participants.length) return 0;
+      return Number(expense.amount_in_base || 0) / participants.length;
+    }
+
+    function computeShareOriginal(expense, userId) {
+      if (!userId) return 0;
+      if (expense.split_mode === "custom") {
+        const custom = expense.custom_split_amounts || {};
+        return Number(custom[userId] ?? custom[String(userId)] ?? 0);
+      }
+      const participants = expense.split_with_user_ids || [];
+      if (!participants.includes(userId) || !participants.length) return 0;
+      return Number(expense.amount || 0) / participants.length;
+    }
+
+    function computeMyShareBase() {
+      if (!state.me) return 0;
+      return state.expenses.reduce((sum, expense) => sum + computeShareBase(expense, state.me.id), 0);
+    }
+
+    function computeBalances() {
+      const balances = {};
+      state.members.forEach((member) => {
+        balances[member.user_id] = 0;
+      });
+
+      state.expenses.forEach((expense) => {
+        balances[expense.paid_by_user_id] = (balances[expense.paid_by_user_id] || 0) + Number(expense.amount_in_base || 0);
+        (expense.split_with_user_ids || []).forEach((userId) => {
+          balances[userId] = (balances[userId] || 0) - computeShareBase(expense, userId);
+        });
+      });
+
+      return balances;
+    }
+
+    function computeBalanceCard() {
+      if (!state.me || !state.selectedTrip) {
+        return { title: "Settled Up", copy: "You are all clear with the group", icon: "verified", cardClass: "bg-sky-600 shadow-sky-200" };
+      }
+      const balance = computeBalances()[state.me.id] || 0;
+      const base = state.selectedTrip.base_currency;
+      if (Math.abs(balance) < 0.01) {
+        return {
+          title: "Settled Up",
+          copy: "You are all clear with the group",
+          icon: "verified",
+          cardClass: "bg-sky-600 shadow-sky-200",
+        };
+      }
+      if (balance > 0) {
+        return {
+          title: "You Are Owed",
+          copy: `${formatMoney(base, balance)} should flow back to you`,
+          icon: "north_east",
+          cardClass: "bg-emerald-600 shadow-emerald-200",
+        };
+      }
+      return {
+        title: "You Owe",
+        copy: `${formatMoney(base, Math.abs(balance))} is still outstanding`,
+        icon: "south_east",
+        cardClass: "bg-amber-500 shadow-amber-200",
+      };
+    }
+
+    function renderMembers() {
+      if (!state.members.length) {
+        el("member-strip").innerHTML = `
+          <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-500">
+            Members will appear here after selecting a trip.
+          </div>
+        `;
+        return;
+      }
+      el("member-strip").innerHTML = state.members
+        .map((member) => {
+          const theme = memberTheme(member.user_id);
+          const mine = state.me && member.user_id === state.me.id;
+          return `
+            <div class="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+              <div class="flex items-center gap-3">
+                <div class="flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-black ${theme}">
+                  ${escapeHtml(initials(member.display_name))}
+                </div>
+                <div class="min-w-0">
+                  <p class="truncate font-bold text-slate-900">${escapeHtml(member.display_name)}</p>
+                  <p class="text-xs font-medium text-slate-500">${mine ? "You" : member.role}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function groupedExpenses() {
+      const map = new Map();
+      [...state.expenses]
+        .sort((a, b) => new Date(b.expense_time) - new Date(a.expense_time))
+        .forEach((expense) => {
+          const key = new Date(expense.expense_time).toISOString().slice(0, 10);
+          if (!map.has(key)) map.set(key, []);
+          map.get(key).push(expense);
+        });
+      return map;
+    }
+
+    function expenseParticipantAvatars(expense) {
+      return (expense.split_with_user_ids || [])
+        .slice(0, 3)
+        .map((userId) => {
+          const member = memberById(userId);
+          const theme = memberTheme(userId);
+          return `<div class="flex h-5 w-5 items-center justify-center rounded-full border border-white text-[9px] font-black ${theme}">${escapeHtml(initials(member?.display_name || "?"))}</div>`;
+        })
+        .join("");
+    }
+
+    function renderExpenseGroups() {
+      if (!state.selectedTrip) {
+        el("expense-groups").innerHTML = "";
+        return;
+      }
+      if (!state.expenses.length) {
+        el("expense-groups").innerHTML = `
+          <div class="rounded-[1.6rem] border border-dashed border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
+            <p class="text-sm font-semibold text-slate-500">No expenses yet. Add the first transaction from the Add screen.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const chunks = [];
+      for (const [dateKey, items] of groupedExpenses()) {
+        chunks.push(`
+          <div>
+            <div class="mb-4 flex items-center gap-4">
+              <h4 class="text-sm font-bold uppercase tracking-[0.22em] text-slate-400">${escapeHtml(formatSectionDate(dateKey))}</h4>
+              <div class="h-px flex-1 bg-slate-200"></div>
+            </div>
+            <div class="space-y-3">
+              ${items.map((expense) => renderExpenseRow(expense)).join("")}
+            </div>
+          </div>
+        `);
+      }
+      el("expense-groups").innerHTML = chunks.join("");
+    }
+
+    function renderExpenseRow(expense) {
+      const meta = categoryMeta(expense.category);
+      const myShareOriginal = computeShareOriginal(expense, state.me?.id);
+      const isMine = myShareOriginal > 0.000001;
+      return `
+        <button
+          type="button"
+          class="group flex w-full items-center gap-4 rounded-[1.4rem] border border-slate-100 bg-white p-4 text-left transition-shadow hover:shadow-md"
+          onclick="openExpenseDetail('${expense.id}')"
+        >
+          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${meta.listBg}">
+            <span class="material-symbols-outlined">${meta.icon}</span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <h5 class="truncate font-bold text-slate-900">${escapeHtml(expense.category || "Untitled expense")}</h5>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <div class="flex -space-x-1.5">
+                ${expenseParticipantAvatars(expense)}
+              </div>
+              <span class="text-[11px] font-medium text-slate-500">
+                Paid by ${escapeHtml(userNameById(expense.paid_by_user_id))} &middot; ${(expense.split_with_user_ids || []).length} people
+              </span>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-sm font-bold text-slate-900">${escapeHtml(formatMoney(expense.currency, expense.amount))}</div>
+            <div class="mt-0.5 text-[11px] font-bold ${isMine ? "text-sky-600" : "text-slate-400"}">
+              ${isMine ? `Your Share: ${escapeHtml(formatMoney(expense.currency, myShareOriginal))}` : "Not your share"}
+            </div>
+          </div>
+        </button>
+      `;
+    }
+
+    function renderExpensePaidByOptions() {
+      const options = state.members
+        .map((member) => `<option value="${member.user_id}">${escapeHtml(member.display_name)}</option>`)
+        .join("");
+      el("expense-paid-by").innerHTML = options;
+      el("detail-paid-by").innerHTML = options;
+      if (state.me) {
+        el("expense-paid-by").value = state.me.id;
+      }
+    }
+
+    function renderAddCategoryGrid() {
+      const categories = ["food", "transport", "lodging", "activities", "shopping", "others"];
+      el("category-grid").innerHTML = categories
+        .map((key) => {
+          const meta = categoryMeta(key);
+          const active = state.selectedCategory === key;
+          return `
+            <button
+              type="button"
+              class="flex flex-col items-center gap-2 rounded-[1.25rem] border p-4 transition-colors ${
+                active
+                  ? "border-sky-500 bg-sky-50 text-sky-700"
+                  : "border-slate-100 bg-white text-slate-500 hover:border-sky-200"
+              }"
+              onclick="selectCategory('${key}')"
+            >
+              <span class="material-symbols-outlined"${active ? " style='font-variation-settings: \"FILL\" 1;'" : ""}>${meta.icon}</span>
+              <span class="text-[10px] font-bold uppercase tracking-[0.18em]">${escapeHtml(meta.label)}</span>
+            </button>
+          `;
+        })
+        .join("");
+    }
+
+    function selectCategory(category) {
+      state.selectedCategory = category;
+      renderAddCategoryGrid();
+    }
+
+    function setAddSplitMode(mode) {
+      state.addSplitMode = mode;
+      el("split-mode-equal").className = `rounded-lg px-4 py-1.5 text-xs font-bold ${mode === "equal" ? "bg-white shadow-sm" : "text-slate-400"}`;
+      el("split-mode-custom").className = `rounded-lg px-4 py-1.5 text-xs font-bold ${mode === "custom" ? "bg-white shadow-sm" : "text-slate-400"}`;
+      el("split-custom-form").classList.toggle("hidden", mode !== "custom");
+      renderCustomSplitAmountInputs();
+    }
+
+    function renderAddSplitMembers() {
+      if (!state.members.length) {
+        el("split-member-list").innerHTML = `
+          <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-500">
+            Trip members will appear here after selecting a trip.
+          </div>
+        `;
+        return;
+      }
+
+      el("split-member-list").innerHTML = state.members
+        .map((member) => {
+          const theme = memberTheme(member.user_id);
+          const mine = state.me && member.user_id === state.me.id;
+          return `
+            <label class="flex items-center justify-between rounded-xl border border-slate-100 p-3 ${mine ? "bg-slate-50" : "bg-white"}">
+              <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-full text-sm font-black ${theme}">
+                  ${escapeHtml(initials(member.display_name))}
+                </div>
+                <div>
+                  <p class="text-sm font-bold text-slate-900">${escapeHtml(member.display_name)}</p>
+                  <p class="text-xs text-slate-500">${mine ? "You" : "Member"}</p>
+                </div>
+              </div>
+              <input class="split-member h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500" type="checkbox" value="${member.user_id}" checked />
+            </label>
+          `;
+        })
+        .join("");
+
+      document.querySelectorAll(".split-member").forEach((checkbox) => {
+        checkbox.addEventListener("change", () => {
           if (!checkbox.checked) delete state.customSplitManualByUserId[checkbox.value];
           renderCustomSplitAmountInputs();
         });
@@ -355,12 +1559,19 @@ user2@example.com / user2 / 123456</pre>
       renderCustomSplitAmountInputs();
     }
 
-    function bindCustomSplitInputEvents() {
-      document.querySelectorAll('.split-custom-user-amount').forEach((input) => {
-        input.addEventListener('input', () => {
+    function getSelectedAddMembers() {
+      return state.members.filter((member) => {
+        const checkbox = document.querySelector(`.split-member[value="${member.user_id}"]`);
+        return checkbox && checkbox.checked;
+      });
+    }
+
+    function bindCustomSplitInputs() {
+      document.querySelectorAll(".split-custom-user-amount").forEach((input) => {
+        input.addEventListener("input", () => {
           const userId = input.dataset.userId;
           const parsed = Number(input.value);
-          if (input.value === '' || !Number.isFinite(parsed)) {
+          if (input.value === "" || !Number.isFinite(parsed)) {
             delete state.customSplitManualByUserId[userId];
           } else {
             state.customSplitManualByUserId[userId] = parsed;
@@ -371,384 +1582,542 @@ user2@example.com / user2 / 123456</pre>
     }
 
     function syncCustomSplitRows(selectedMembers) {
-      const customForm = document.getElementById('split-custom-form');
-      const selectedIds = selectedMembers.map((member) => member.user_id);
-      const needsRebuild = selectedIds.length !== state.customSplitRenderedUserIds.length
-        || selectedIds.some((id, idx) => id !== state.customSplitRenderedUserIds[idx]);
+      const targetIds = selectedMembers.map((member) => member.user_id);
+      const needsRebuild =
+        targetIds.length !== state.customSplitRenderedUserIds.length ||
+        targetIds.some((id, index) => id !== state.customSplitRenderedUserIds[index]);
 
       if (!needsRebuild) return;
 
-      customForm.innerHTML = selectedMembers.map((member) => `
-        <label class="custom-split-row">
-          <span>${member.display_name}</span>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            class="split-custom-user-amount"
-            data-user-id="${member.user_id}"
-          />
-        </label>
-      `).join('');
-      state.customSplitRenderedUserIds = selectedIds;
-      bindCustomSplitInputEvents();
-    }
-
-    function toCents(value) {
-      const num = Number(value);
-      if (!Number.isFinite(num)) return null;
-      return Math.round(num * 100);
+      el("split-custom-form").innerHTML = selectedMembers
+        .map((member) => `
+          <label class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+            <span class="text-sm font-semibold text-slate-700">${escapeHtml(member.display_name)}</span>
+            <input
+              class="split-custom-user-amount w-32 rounded-lg border-none bg-white px-3 py-2 text-right text-sm font-bold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500"
+              data-user-id="${member.user_id}"
+              min="0"
+              step="0.01"
+              type="number"
+            />
+          </label>
+        `)
+        .join("");
+      state.customSplitRenderedUserIds = targetIds;
+      bindCustomSplitInputs();
     }
 
     function renderCustomSplitAmountInputs() {
-      const mode = document.getElementById('split-mode').value;
-      const customForm = document.getElementById('split-custom-form');
-      const customField = document.getElementById('split-custom');
-      const warning = document.getElementById('split-custom-warning');
-      if (mode !== 'custom') {
-        warning.classList.add('hidden');
+      const warning = el("split-custom-warning");
+      if (state.addSplitMode !== "custom") {
+        warning.classList.add("hidden");
         return;
       }
 
-      const selectedMembers = state.members.filter((m) => {
-        const checkbox = document.querySelector(`.split-member[value="${m.user_id}"]`);
-        return checkbox && checkbox.checked;
-      });
+      const selectedMembers = getSelectedAddMembers();
       syncCustomSplitRows(selectedMembers);
 
-      const totalCents = toCents(document.getElementById('expense-amount').value) ?? 0;
-      const manualIds = selectedMembers.filter((m) => Number.isFinite(state.customSplitManualByUserId[m.user_id])).map((m) => m.user_id);
-      const manualSum = manualIds.reduce((sum, userId) => sum + toCents(state.customSplitManualByUserId[userId]), 0);
-      const untypedMembers = selectedMembers.filter((m) => !manualIds.includes(m.user_id));
-
+      const totalCents = toCents(el("expense-amount").value) ?? 0;
+      const manualIds = selectedMembers
+        .filter((member) => Number.isFinite(state.customSplitManualByUserId[member.user_id]))
+        .map((member) => member.user_id);
+      const manualSum = manualIds.reduce((sum, userId) => sum + (toCents(state.customSplitManualByUserId[userId]) || 0), 0);
+      const remainingMembers = selectedMembers.filter((member) => !manualIds.includes(member.user_id));
       const distribution = {};
+
       manualIds.forEach((userId) => {
-        distribution[userId] = toCents(state.customSplitManualByUserId[userId]);
+        distribution[userId] = toCents(state.customSplitManualByUserId[userId]) || 0;
       });
 
       const remaining = totalCents - manualSum;
-      if (untypedMembers.length > 0) {
-        const baseShare = Math.trunc(remaining / untypedMembers.length);
-        let remainder = remaining - (baseShare * untypedMembers.length);
-        for (const member of untypedMembers) {
-          const adjust = remainder === 0 ? 0 : (remainder > 0 ? 1 : -1);
+      if (remainingMembers.length > 0) {
+        const baseShare = Math.trunc(remaining / remainingMembers.length);
+        let remainder = remaining - baseShare * remainingMembers.length;
+        remainingMembers.forEach((member) => {
+          const adjust = remainder === 0 ? 0 : remainder > 0 ? 1 : -1;
           distribution[member.user_id] = baseShare + adjust;
           remainder -= adjust;
-        }
+        });
       }
 
       const jsonSplit = {};
       selectedMembers.forEach((member) => {
-        jsonSplit[member.user_id] = Number(((distribution[member.user_id] ?? 0) / 100).toFixed(2));
+        jsonSplit[member.user_id] = Number(((distribution[member.user_id] || 0) / 100).toFixed(2));
       });
-      customField.value = JSON.stringify(jsonSplit, null, 2);
+      el("split-custom-json").value = JSON.stringify(jsonSplit, null, 2);
 
       const active = document.activeElement;
-      const activeUserId = active && active.classList && active.classList.contains('split-custom-user-amount')
-        ? active.dataset.userId
-        : null;
-
+      const activeUserId = active?.classList?.contains("split-custom-user-amount") ? active.dataset.userId : null;
       selectedMembers.forEach((member) => {
-        const input = customForm.querySelector(`.split-custom-user-amount[data-user-id="${member.user_id}"]`);
-        if (!input) return;
-        const amount = Number(((distribution[member.user_id] ?? 0) / 100).toFixed(2));
-        const manualValue = state.customSplitManualByUserId[member.user_id];
-        const nextValue = Number.isFinite(manualValue) ? Number(manualValue).toFixed(2) : amount.toFixed(2);
-        if (activeUserId === member.user_id) return;
-        if (input.value !== nextValue) input.value = nextValue;
+        const input = document.querySelector(`.split-custom-user-amount[data-user-id="${member.user_id}"]`);
+        if (!input || activeUserId === member.user_id) return;
+        const manual = state.customSplitManualByUserId[member.user_id];
+        const calculated = Number(((distribution[member.user_id] || 0) / 100).toFixed(2));
+        input.value = Number.isFinite(manual) ? Number(manual).toFixed(2) : calculated.toFixed(2);
       });
 
-      const isOverTotal = manualSum > totalCents;
-      warning.textContent = isOverTotal
-        ? 'Typed amounts exceed total order amount. Reduce typed values to continue auto distribution.'
-        : '';
-      warning.classList.toggle('hidden', !isOverTotal);
-    }
-
-    
-    function renderDetailSplitFields(selectedIds = null) {
-      const mode = document.getElementById('detail-split-mode').value;
-      const membersWrap = document.getElementById('detail-split-members');
-      const custom = document.getElementById('detail-split-custom');
-      custom.classList.toggle('hidden', mode !== 'custom');
-      const selected = new Set(selectedIds || state.members.map(m => m.user_id));
-      membersWrap.innerHTML = state.members.map(m => `<label><input type="checkbox" class="detail-split-member" value="${m.user_id}" ${selected.has(m.user_id) ? 'checked' : ''}/> ${m.display_name}</label>`).join('');
-    }
-
-    function userNameById(userId) {
-      const found = state.members.find(m => m.user_id === userId);
-      return found ? found.display_name : userId;
-    }
-
-
-    function myShareAmount(order) {
-      if (!state.me) return '0';
-      const myId = state.me.id;
-      if (order.split_mode === 'custom') {
-        const custom = order.custom_split_amounts || {};
-        return String(custom[myId] ?? custom[String(myId)] ?? '0');
+      if (manualSum > totalCents) {
+        warning.textContent = "Typed amounts exceed the expense total. Reduce the custom values.";
+        warning.classList.remove("hidden");
+      } else {
+        warning.classList.add("hidden");
       }
-
-      const participants = order.split_with_user_ids || [];
-      if (!participants.includes(myId) || participants.length === 0) return '0';
-      const total = Number(order.amount);
-      if (Number.isNaN(total)) return '0';
-      const share = total / participants.length;
-      return Number.isInteger(share) ? String(share) : share.toFixed(2);
     }
 
-    function groupedExpenses(items) {
-      const map = new Map();
-      const sorted = [...items].sort((a, b) => new Date(b.expense_time) - new Date(a.expense_time));
-      for (const item of sorted) {
-        const key = new Date(item.expense_time).toISOString().slice(0, 10);
-        if (!map.has(key)) map.set(key, []);
-        map.get(key).push(item);
-      }
-      return map;
+    function setFxMode(mode) {
+      state.fxMode = mode;
+      el("fx-mode-auto").className = `rounded-lg px-3 py-1 text-xs font-bold ${mode === "auto" ? "bg-white shadow-sm" : "text-slate-400"}`;
+      el("fx-mode-manual").className = `rounded-lg px-3 py-1 text-xs font-bold ${mode === "manual" ? "bg-white shadow-sm" : "text-slate-400"}`;
+      el("manual-fx-wrap").classList.toggle("hidden", mode !== "manual");
+      updateFxPreview();
     }
 
-    function renderExpenseList() {
-      const wrap = document.getElementById('expense-list');
-      if (!state.expenses.length) {
-        wrap.innerHTML = '<div class="date-divider">No orders yet.</div>';
-        return;
-      }
-      const groups = groupedExpenses(state.expenses);
-      const chunks = [];
-      for (const [dateKey, items] of groups.entries()) {
-        chunks.push(`<div class="date-divider">${formatDateBlock(dateKey)}</div>`);
-        for (const i of items) {
-          chunks.push(`
-            <button class="expense-row" onclick="openExpenseDetail('${i.id}')">
-              <div class="expense-main">
-                <div class="expense-left">
-                  <div class="expense-title">${i.category || 'Untitled order'}</div>
-                  <div class="expense-subtitle">${userNameById(i.paid_by_user_id)} paid ${formatMoney(i.currency, i.amount)} → ${formatMoney(i.target_currency, i.amount_in_target)}</div>
-                </div>
-                <div class="expense-amount">${formatMoney(i.currency, myShareAmount(i))}<div class="expense-share-label">your share</div></div>
-              </div>
-            </button>
-          `);
-        }
-      }
-      wrap.innerHTML = chunks.join('');
+    function syncExpenseCurrencyDefault() {
+      const defaultCurrency = state.selectedTrip?.base_currency && KNOWN_CURRENCIES.includes(state.selectedTrip.base_currency)
+        ? state.selectedTrip.base_currency
+        : "USD";
+      renderCurrencyOptions("expense-currency", defaultCurrency);
+      toggleCurrencyCustomInput("expense-currency", "expense-currency-custom");
+      el("expense-time").value = formatDateTimeInput(new Date().toISOString());
+      setFxMode("auto");
     }
 
-    function openExpenseDetail(expenseId) {
-      const detailPanel = document.getElementById('order-detail');
-      if (state.selectedExpenseId === expenseId && !detailPanel.classList.contains('hidden')) {
-        state.selectedExpenseId = null;
-        detailPanel.classList.add('hidden');
+    function updateFxPreview() {
+      const trip = state.selectedTrip;
+      const source = getCurrencyValue("expense-currency", "expense-currency-custom");
+      const amount = Number(el("expense-amount").value || 0);
+
+      if (!trip) {
+        el("conversion-label").textContent = "Base Conversion";
+        el("conversion-preview").textContent = "Select a trip to calculate conversion";
+        el("fx-hint").textContent = "Built-in rates are used automatically when the currency pair is known.";
         return;
       }
 
-      const item = state.expenses.find(e => e.id === expenseId);
-      if (!item) return;
-      state.selectedExpenseId = expenseId;
-      document.getElementById('detail-name').value = item.category;
-      document.getElementById('detail-amount').value = item.amount;
-      document.getElementById('detail-owner').value = item.owner_user_id;
-      document.getElementById('detail-time').value = formatDateTimeInput(item.expense_time);
-      document.getElementById('detail-split-mode').value = item.split_mode || 'equal';
-      renderDetailSplitFields(item.split_with_user_ids || []);
-      document.getElementById('detail-split-custom').value = item.custom_split_amounts ? JSON.stringify(item.custom_split_amounts, null, 2) : '';
-      detailPanel.classList.remove('hidden');
-    }
+      const baseCurrency = trip.base_currency;
+      el("conversion-label").textContent = `Base Conversion (${baseCurrency})`;
 
-    async function saveExpenseDetail() {
-      try {
-        if (!state.selectedExpenseId) return;
-        const tripId = document.getElementById('selected-trip-id').value;
-        const localValue = document.getElementById('detail-time').value;
-        const splitMode = document.getElementById('detail-split-mode').value;
-        const body = {
-          category: document.getElementById('detail-name').value,
-          amount: String(document.getElementById('detail-amount').value),
-          owner_user_id: document.getElementById('detail-owner').value,
-          expense_time: new Date(localValue).toISOString(),
-          split_mode: splitMode,
-          split_with_user_ids: Array.from(document.querySelectorAll('.detail-split-member:checked')).map(el => el.value),
-        };
-        if (splitMode === 'custom') {
-          const raw = document.getElementById('detail-split-custom').value.trim();
-          body.custom_split_amounts = raw ? JSON.parse(raw) : {};
-        }
-        await api(`/trips/${tripId}/expenses/${state.selectedExpenseId}`, 'PATCH', body);
-        log('Order updated');
-        await loadExpenses();
-      } catch (e) {
-        log(`Update order failed: ${e.message}`);
+      let rate = null;
+      if (source === baseCurrency) {
+        rate = 1;
+      } else if (state.fxMode === "manual") {
+        rate = Number(el("expense-fx").value);
+      } else {
+        rate = latestFx(source, baseCurrency);
       }
-    }
 
-    async function loadTripMembers(tripId) {
-      state.me = await api('/me');
-      state.members = await api(`/trips/${tripId}/members`);
-      renderOwnerOptions();
-      renderSplitFields();
-      renderDetailSplitFields();
-    }
-
-    async function api(path, method = 'GET', body) {
-      const headers = { 'Content-Type': 'application/json' };
-      if (state.token) headers.Authorization = `Bearer ${state.token}`;
-      const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
-      const text = await res.text();
-      let data;
-      try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
-      if (!res.ok) throw new Error(`${res.status} ${JSON.stringify(data)}`);
-      return data;
-    }
-
-    async function signup() {
-      try {
-        const data = await api('/auth/signup', 'POST', {
-          email: document.getElementById('signup-email').value,
-          display_name: document.getElementById('signup-name').value,
-          password: document.getElementById('signup-password').value,
-        });
-        setToken(data.access_token);
-        log('Signup success');
-        showAuthNotice('Sign up complete. You are now logged in.', 'success');
-      } catch (e) {
-        log(`Signup failed: ${e.message}`);
-        showAuthNotice(`Sign up failed: ${e.message}`, 'error');
+      if (!source) {
+        el("conversion-preview").textContent = "Choose a source currency";
+        el("fx-hint").textContent = "Enter the currency you spent in.";
+        return;
       }
-    }
 
-    async function login() {
-      try {
-        const data = await api('/auth/login', 'POST', {
-          email: document.getElementById('login-email').value,
-          password: document.getElementById('login-password').value,
-        });
-        setToken(data.access_token);
-        log('Login success');
-        showAuthNotice('Login successful. Welcome back!', 'success');
-      } catch (e) {
-        log(`Login failed: ${e.message}`);
-        showAuthNotice(`Login failed: ${e.message}`, 'error');
+      if (!Number.isFinite(rate) || rate <= 0) {
+        el("conversion-preview").textContent = "Manual FX rate required";
+        el("fx-hint").textContent = `No built-in rate for ${source} to ${baseCurrency}. Switch to manual and enter one.`;
+        return;
       }
+
+      el("conversion-preview").textContent = amount > 0 ? `\u2248 ${formatMoney(baseCurrency, amount * rate)}` : `1 ${source} = ${formatMoney(baseCurrency, rate)}`;
+      el("fx-hint").textContent = state.fxMode === "manual"
+        ? `Manual rate in use: 1 ${source} = ${formatMoney(baseCurrency, rate)}`
+        : `Auto rate loaded: 1 ${source} = ${formatMoney(baseCurrency, rate)}`;
     }
 
-    async function createTrip() {
-      try {
-        await api('/trips', 'POST', {
-          name: document.getElementById('trip-name').value,
-          base_currency: getCurrencyValue('trip-base', 'trip-base-custom'),
-        });
-        log('Trip created');
-        loadTrips();
-      } catch (e) { log(`Create trip failed: ${e.message}`); }
-    }
+    function buildCreateExpensePayload() {
+      if (!state.selectedTrip) throw new Error("Select a trip first.");
+      const amount = Number(el("expense-amount").value);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter a valid amount.");
 
-    async function loadTrips() {
-      try {
-        state.trips = await api('/trips');
-        const list = document.getElementById('trip-list');
-        list.innerHTML = state.trips.map(t => `
-          <div class="card">
-            <div><b>${t.name}</b> <span class="pill">${t.base_currency}</span></div>
-            <div>${t.id}</div>
-            <button onclick="selectTrip('${t.id}')">Select</button>
-          </div>
-        `).join('');
-        log(`Loaded ${state.trips.length} trip(s)`);
-      } catch (e) { log(`Load trips failed: ${e.message}`); }
-    }
+      const currency = getCurrencyValue("expense-currency", "expense-currency-custom");
+      if (!currency) throw new Error("Choose the expense currency.");
 
-    async function selectTrip(id) {
-      document.getElementById('selected-trip-id').value = id;
-      state.selectedTrip = state.trips.find(t => t.id === id) || null;
-      if (state.selectedTrip) {
-        const base = state.selectedTrip.base_currency;
-        const targetSelect = document.getElementById('expense-target-currency');
-        if (KNOWN_CURRENCIES.includes(base)) {
-          targetSelect.value = base;
-          toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom');
-        } else {
-          targetSelect.value = 'OTHER';
-          document.getElementById('expense-target-currency-custom').value = base;
-          toggleCurrencyCustomInput('expense-target-currency', 'expense-target-currency-custom');
+      const paidBy = el("expense-paid-by").value || state.me?.id;
+      const splitWithUserIds = getSelectedAddMembers().map((member) => member.user_id);
+      if (!splitWithUserIds.length) throw new Error("Select at least one member for the split.");
+
+      const payload = {
+        amount: String(amount),
+        currency,
+        target_currency: state.selectedTrip.base_currency,
+        category: state.selectedCategory,
+        expense_time: el("expense-time").value ? new Date(el("expense-time").value).toISOString() : new Date().toISOString(),
+        paid_by_user_id: paidBy,
+        owner_user_id: paidBy,
+        note: el("expense-note").value.trim(),
+        split_mode: state.addSplitMode,
+        split_with_user_ids: splitWithUserIds,
+      };
+
+      if (state.addSplitMode === "custom") {
+        payload.custom_split_amounts = JSON.parse(el("split-custom-json").value || "{}");
+      }
+
+      if (currency !== state.selectedTrip.base_currency) {
+        if (state.fxMode === "manual") {
+          const fx = Number(el("expense-fx").value);
+          if (!Number.isFinite(fx) || fx <= 0) throw new Error("Enter a valid manual FX rate.");
+          payload.fx_rate_to_target = String(fx);
+          payload.fx_rate_to_base = String(fx);
+        } else if (!latestFx(currency, state.selectedTrip.base_currency)) {
+          throw new Error(`No built-in rate for ${currency} to ${state.selectedTrip.base_currency}. Switch to manual.`);
         }
       }
-      updateAutoFxHint();
-      await loadTripMembers(id);
-      await loadExpenses();
-      log(`Selected trip ${id}`);
-    }
 
-    async function createInvite() {
-      try {
-        const tripId = document.getElementById('selected-trip-id').value;
-        const expiresInHours = Number(document.getElementById('invite-hours').value || 24);
-        const res = await api(`/trips/${tripId}/invite`, 'POST', { expires_in_hours: expiresInHours });
-        document.getElementById('invite-result').textContent = `Code: ${res.invite_code}, expires: ${res.expires_at}`;
-        log('Invite generated');
-      } catch (e) { log(`Create invite failed: ${e.message}`); }
-    }
-
-    async function joinTrip() {
-      try {
-        const code = document.getElementById('join-code').value;
-        await api('/trips/join', 'POST', { invite_code: code });
-        log('Join success');
-        loadTrips();
-      } catch (e) { log(`Join failed: ${e.message}`); }
+      return payload;
     }
 
     async function createExpense() {
       try {
-        const tripId = document.getElementById('selected-trip-id').value;
-        const localValue = document.getElementById('expense-time').value;
-        const iso = localValue ? new Date(localValue).toISOString() : new Date().toISOString();
-        const splitMode = document.getElementById('split-mode').value;
-        const body = {
-          amount: String(document.getElementById('expense-amount').value),
-          currency: getCurrencyValue('expense-currency', 'expense-currency-custom'),
-          target_currency: getCurrencyValue('expense-target-currency', 'expense-target-currency-custom'),
-          category: document.getElementById('expense-category').value,
-          expense_time: iso,
-          owner_user_id: document.getElementById('expense-owner').value || undefined,
-          split_mode: splitMode,
-          note: document.getElementById('expense-note').value,
-        };
-        body.split_with_user_ids = Array.from(document.querySelectorAll('.split-member:checked')).map(el => el.value);
-        if (splitMode === 'custom') {
-          const raw = document.getElementById('split-custom').value.trim();
-          body.custom_split_amounts = raw ? JSON.parse(raw) : {};
+        const payload = buildCreateExpensePayload();
+        await api(`/trips/${state.selectedTrip.id}/expenses`, "POST", payload);
+        showToast("Expense created.", "success");
+        resetExpenseForm();
+        await loadCurrentTripContext();
+        setScreen("trip");
+      } catch (error) {
+        showToast(error.message || "Unable to create expense.", "error");
+      }
+    }
+
+    function resetExpenseForm() {
+      el("expense-amount").value = "";
+      el("expense-fx").value = "";
+      el("expense-note").value = "";
+      state.selectedCategory = "food";
+      state.customSplitManualByUserId = {};
+      state.customSplitRenderedUserIds = [];
+      syncExpenseCurrencyDefault();
+      setAddSplitMode("equal");
+      renderAddCategoryGrid();
+      renderAddSplitMembers();
+      updateFxPreview();
+    }
+
+    function updateInvitePanel() {
+      const isOwner = state.members.find((member) => state.me && member.user_id === state.me.id)?.role === "owner";
+      const enabled = Boolean(state.selectedTrip) && isOwner;
+      el("invite-button").disabled = !enabled;
+      el("invite-button").className = `rounded-2xl px-4 py-3 text-sm font-bold transition-transform ${
+        enabled ? "bg-white text-slate-900 hover:scale-[1.02]" : "bg-white/15 text-slate-300 cursor-not-allowed"
+      }`;
+      if (!state.selectedTrip) {
+        el("invite-result").textContent = "No invite generated yet.";
+      } else if (!isOwner) {
+        el("invite-result").textContent = "Only the trip owner can generate invites.";
+      } else if (!el("invite-result").innerHTML.includes("Code:")) {
+        el("invite-result").textContent = "No invite generated yet.";
+      }
+    }
+
+    function renderAnalytics() {
+      if (!state.selectedTrip || !state.summary) {
+        el("analytics-total").textContent = "$0";
+        document.querySelector(".chart-donut").style.background = "conic-gradient(#e2e8f0 0deg 360deg)";
+        el("category-legend").innerHTML = `<p class="text-sm font-medium text-slate-500">Select a trip to load analytics.</p>`;
+        el("high-impact-list").innerHTML = `<p class="text-sm font-medium text-slate-500">No category data yet.</p>`;
+        el("member-bars").innerHTML = "";
+        el("settle-up-list").innerHTML = `<div class="rounded-xl border border-white/10 bg-white/10 px-4 py-4 text-sm text-slate-100">Settlement suggestions appear here after expenses are added.</div>`;
+        return;
+      }
+
+      const base = state.selectedTrip.base_currency;
+      const total = Number(state.summary.total_spending_in_base || 0);
+      const categories = Object.entries(state.summary.total_spending_by_category || {})
+        .sort((a, b) => Number(b[1]) - Number(a[1]));
+      const members = Object.entries(state.summary.total_spending_by_member || {})
+        .sort((a, b) => Number(b[1]) - Number(a[1]));
+
+      el("analytics-total").textContent = formatMoney(base, total);
+      renderCategoryDonut(categories, total, base);
+      renderHighImpact(categories, total, base);
+      renderMemberBars(members, base);
+      renderSettlementPlan(base);
+    }
+
+    function renderCategoryDonut(categories, total, base) {
+      if (!categories.length || total <= 0) {
+        document.querySelector(".chart-donut").style.background = "conic-gradient(#e2e8f0 0deg 360deg)";
+        el("category-legend").innerHTML = `<p class="text-sm font-medium text-slate-500">No category data yet.</p>`;
+        return;
+      }
+
+      let current = 0;
+      const slices = categories.map(([category, value]) => {
+        const meta = categoryMeta(category);
+        const portion = Number(value) / total;
+        const start = current * 360;
+        current += portion;
+        const end = current * 360;
+        return `${meta.chart} ${start}deg ${end}deg`;
+      });
+      document.querySelector(".chart-donut").style.background = `conic-gradient(${slices.join(", ")})`;
+
+      el("category-legend").innerHTML = categories
+        .map(([category, value]) => {
+          const meta = categoryMeta(category);
+          const percent = total > 0 ? (Number(value) / total) * 100 : 0;
+          return `
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="h-3 w-3 rounded-full" style="background:${meta.chart}"></div>
+                <span class="text-sm font-medium">${escapeHtml(meta.label)}</span>
+              </div>
+              <span class="text-sm font-bold">${escapeHtml(formatMoney(base, value))} <span class="text-slate-400">(${percent.toFixed(0)}%)</span></span>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function renderHighImpact(categories, total, base) {
+      if (!categories.length || total <= 0) {
+        el("high-impact-list").innerHTML = `<p class="text-sm font-medium text-slate-500">No category data yet.</p>`;
+        return;
+      }
+      const maxValue = Number(categories[0][1] || 1);
+      el("high-impact-list").innerHTML = categories.slice(0, 4).map(([category, value]) => {
+        const meta = categoryMeta(category);
+        const width = (Number(value) / maxValue) * 100;
+        const share = (Number(value) / total) * 100;
+        return `
+          <div class="rounded-xl border border-transparent bg-slate-50 p-4 transition-colors hover:border-slate-200">
+            <div class="flex items-center gap-4">
+              <div class="flex h-10 w-10 items-center justify-center rounded-lg ${meta.listBg}">
+                <span class="material-symbols-outlined">${meta.icon}</span>
+              </div>
+              <div class="flex-1">
+                <div class="mb-1 flex items-center justify-between">
+                  <p class="text-sm font-bold uppercase tracking-tight">${escapeHtml(meta.label)}</p>
+                  <span class="text-xs font-bold text-slate-400">${share.toFixed(0)}%</span>
+                </div>
+                <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div class="h-full rounded-full" style="width:${width}%; background:${meta.chart}"></div>
+                </div>
+                <p class="mt-2 text-xs font-semibold text-slate-500">${escapeHtml(formatMoney(base, value))}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderMemberBars(members, base) {
+      if (!members.length) {
+        el("member-bars").innerHTML = `<p class="text-sm font-medium text-slate-500">No member contribution data yet.</p>`;
+        return;
+      }
+      const maxValue = Number(members[0][1] || 1);
+      el("member-bars").innerHTML = members.map(([userId, value]) => {
+        const numeric = Number(value);
+        const height = maxValue > 0 ? (numeric / maxValue) * 100 : 0;
+        return `
+          <div class="flex flex-1 flex-col items-center gap-3">
+            <div class="group relative flex h-full w-full items-end rounded-t-lg bg-sky-100">
+              <div class="w-full rounded-t-lg bg-sky-500 transition-colors group-hover:bg-sky-400" style="height:${Math.max(height, 6)}%"></div>
+              <div class="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-slate-800 px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                ${escapeHtml(formatMoney(base, numeric))}
+              </div>
+            </div>
+            <span class="text-xs font-bold text-slate-500">${escapeHtml(userNameById(userId))}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function settlementPlan() {
+      const balances = computeBalances();
+      const creditors = [];
+      const debtors = [];
+
+      Object.entries(balances).forEach(([userId, value]) => {
+        const cents = Math.round(value * 100);
+        if (cents > 0) creditors.push({ userId, cents });
+        if (cents < 0) debtors.push({ userId, cents });
+      });
+
+      creditors.sort((a, b) => b.cents - a.cents);
+      debtors.sort((a, b) => a.cents - b.cents);
+
+      const steps = [];
+      let creditorIndex = 0;
+      let debtorIndex = 0;
+      while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
+        const creditor = creditors[creditorIndex];
+        const debtor = debtors[debtorIndex];
+        const amount = Math.min(creditor.cents, Math.abs(debtor.cents));
+        if (amount > 0) {
+          steps.push({
+            from: debtor.userId,
+            to: creditor.userId,
+            amount: amount / 100,
+          });
         }
-        const fx = document.getElementById('expense-fx').value;
-        if (fx) body.fx_rate_to_target = String(fx);
-        await api(`/trips/${tripId}/expenses`, 'POST', body);
-        log('Order created');
-        await loadExpenses();
-      } catch (e) { log(`Create order failed: ${e.message}`); }
+        creditor.cents -= amount;
+        debtor.cents += amount;
+        if (creditor.cents === 0) creditorIndex += 1;
+        if (debtor.cents === 0) debtorIndex += 1;
+      }
+      return steps;
     }
 
-    async function loadExpenses() {
+    function renderSettlementPlan(base) {
+      const plan = settlementPlan();
+      if (!plan.length) {
+        el("settle-up-list").innerHTML = `
+          <div class="rounded-xl border border-white/10 bg-white/10 px-4 py-4 text-sm text-slate-100">
+            Everyone is effectively settled. Add more expenses to generate a debt plan.
+          </div>
+        `;
+        return;
+      }
+      el("settle-up-list").innerHTML = plan.slice(0, 4).map((step) => {
+        const fromName = userNameById(step.from);
+        const toName = userNameById(step.to);
+        return `
+          <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+            <div class="flex items-center gap-3">
+              <div class="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-xs font-black text-white">
+                ${escapeHtml(initials(fromName))}
+              </div>
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">${escapeHtml(fromName)} owes ${escapeHtml(toName)}</p>
+                <p class="text-lg font-black">${escapeHtml(formatMoney(base, step.amount))}</p>
+              </div>
+            </div>
+            <button type="button" class="rounded-lg bg-white p-2 text-sky-700 shadow-lg" onclick="showToast('${escapeHtml(fromName)} should settle with ${escapeHtml(toName)}.', 'info')">
+              <span class="material-symbols-outlined">send</span>
+            </button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderDetailSplitFields(selectedIds = null) {
+      const mode = el("detail-split-mode").value;
+      const selected = new Set(selectedIds || state.members.map((member) => member.user_id));
+      el("detail-split-members").innerHTML = state.members.map((member) => `
+        <label class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+          <span class="text-sm font-semibold text-slate-700">${escapeHtml(member.display_name)}</span>
+          <input class="detail-split-member h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500" type="checkbox" value="${member.user_id}" ${selected.has(member.user_id) ? "checked" : ""} />
+        </label>
+      `).join("");
+      el("detail-custom-wrap").classList.toggle("hidden", mode !== "custom");
+    }
+
+    function openExpenseDetail(expenseId) {
+      const expense = state.expenses.find((item) => item.id === expenseId);
+      if (!expense) return;
+
+      state.selectedExpenseId = expenseId;
+      el("detail-name").value = expense.category || "";
+      el("detail-amount").value = expense.amount;
+      el("detail-paid-by").value = expense.paid_by_user_id;
+      el("detail-time").value = formatDateTimeInput(expense.expense_time);
+      el("detail-note").value = expense.note || "";
+      el("detail-split-mode").value = expense.split_mode || "equal";
+      renderDetailSplitFields(expense.split_with_user_ids || []);
+      el("detail-split-custom").value = expense.custom_split_amounts ? JSON.stringify(expense.custom_split_amounts, null, 2) : "";
+
+      const modal = el("expense-modal");
+      modal.classList.remove("hidden", "pointer-events-none");
+      modal.querySelector(".modal-transition").classList.remove("translate-y-6", "opacity-0");
+    }
+
+    function closeExpenseModal() {
+      const modal = el("expense-modal");
+      modal.classList.add("pointer-events-none");
+      modal.querySelector(".modal-transition").classList.add("translate-y-6", "opacity-0");
+      setTimeout(() => modal.classList.add("hidden"), 180);
+    }
+
+    async function saveExpenseDetail() {
       try {
-        const tripId = document.getElementById('selected-trip-id').value;
-        state.expenses = await api(`/trips/${tripId}/expenses`);
-        renderExpenseList();
-        log(`Loaded ${state.expenses.length} order(s)`);
-      } catch (e) { log(`Load orders failed: ${e.message}`); }
+        if (!state.selectedTrip || !state.selectedExpenseId) return;
+        const paidBy = el("detail-paid-by").value;
+        const payload = {
+          category: el("detail-name").value.trim(),
+          amount: String(el("detail-amount").value),
+          paid_by_user_id: paidBy,
+          owner_user_id: paidBy,
+          expense_time: new Date(el("detail-time").value).toISOString(),
+          note: el("detail-note").value.trim(),
+          split_mode: el("detail-split-mode").value,
+          split_with_user_ids: Array.from(document.querySelectorAll(".detail-split-member:checked")).map((node) => node.value),
+        };
+        if (payload.split_mode === "custom") {
+          payload.custom_split_amounts = JSON.parse(el("detail-split-custom").value || "{}");
+        }
+        await api(`/trips/${state.selectedTrip.id}/expenses/${state.selectedExpenseId}`, "PATCH", payload);
+        closeExpenseModal();
+        showToast("Expense updated.", "success");
+        await loadCurrentTripContext();
+      } catch (error) {
+        showToast(error.message || "Unable to update expense.", "error");
+      }
     }
 
-    async function loadAnalytics() {
+    function exportReport() {
+      if (!state.selectedTrip || !state.summary) {
+        showToast("Select a trip first.", "error");
+        return;
+      }
+      const payload = {
+        trip: state.selectedTrip,
+        summary: state.summary,
+        expenses: state.expenses,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${state.selectedTrip.name.replace(/\s+/g, "-").toLowerCase()}-analytics.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function logout() {
+      setToken("");
+      toggleDrawer(false);
+      setAuthMode("login");
+      showToast("Logged out.", "info");
+    }
+
+    async function initializeApp() {
       try {
-        const tripId = document.getElementById('selected-trip-id').value;
-        const summary = await api(`/trips/${tripId}/analytics/summary`);
-        document.getElementById('analytics-output').textContent = JSON.stringify(summary, null, 2);
-        log('Analytics loaded');
-      } catch (e) { log(`Load analytics failed: ${e.message}`); }
+        if (!state.token) {
+          setAuthMode("login");
+          return;
+        }
+        state.me = await api("/me");
+        renderHeader();
+        await loadTrips();
+      } catch (error) {
+        setToken("");
+        showAuthFeedback("Session expired. Please log in again.", "error");
+      }
     }
 
-    initCurrencyControls();
-    document.getElementById('expense-amount').addEventListener('input', renderCustomSplitAmountInputs);
-    setToken(state.token);
-    if (state.token) loadTrips();
+    function init() {
+      renderCurrencyOptions("trip-base", "USD");
+      toggleCurrencyCustomInput("trip-base", "trip-base-custom");
+      renderCurrencyOptions("expense-currency", "USD");
+      toggleCurrencyCustomInput("expense-currency", "expense-currency-custom");
+      setAuthMode("login");
+      setAddSplitMode("equal");
+      setFxMode("auto");
+      renderAddCategoryGrid();
+      el("expense-amount").addEventListener("input", () => {
+        renderCustomSplitAmountInputs();
+        updateFxPreview();
+      });
+      el("expense-fx").addEventListener("input", updateFxPreview);
+      el("expense-currency-custom").addEventListener("input", updateFxPreview);
+      setToken(state.token);
+      initializeApp();
+    }
+
+    init();
   </script>
 </body>
 </html>

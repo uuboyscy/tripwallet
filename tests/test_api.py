@@ -76,7 +76,8 @@ def test_trip_flow_and_permissions() -> None:
 def test_ui_page_available() -> None:
     response = client.get('/ui')
     assert response.status_code == 200
-    assert 'TripWallet MVP UI' in response.text
+    assert 'TripWallet' in response.text
+    assert 'Quick Access' in response.text
 
 
 def test_expense_uses_latest_fx_and_target_currency() -> None:
