@@ -1912,11 +1912,13 @@
         const numeric = Number(value);
         const height = maxValue > 0 ? (numeric / maxValue) * 100 : 0;
         return `
-          <div class="flex flex-1 flex-col items-center gap-3">
-            <div class="group relative flex h-full w-full items-end rounded-t-lg bg-sky-100">
-              <div class="w-full rounded-t-lg bg-sky-500 transition-colors group-hover:bg-sky-400" style="height:${Math.max(height, 6)}%"></div>
-              <div class="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-slate-800 px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
-                ${escapeHtml(formatMoney(base, numeric))}
+          <div class="flex h-full flex-1 flex-col items-center justify-end gap-3">
+            <div class="flex w-full flex-1 items-end">
+              <div class="group relative flex h-full w-full items-end overflow-hidden rounded-t-lg bg-sky-100">
+                <div class="w-full rounded-t-lg bg-sky-500 transition-colors group-hover:bg-sky-400" style="height:${Math.max(height, 6)}%"></div>
+                <div class="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-slate-800 px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  ${escapeHtml(formatMoney(base, numeric))}
+                </div>
               </div>
             </div>
             <span class="text-xs font-bold text-slate-500">${escapeHtml(userNameById(userId))}</span>
