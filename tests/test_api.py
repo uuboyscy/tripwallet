@@ -51,6 +51,7 @@ def test_trip_flow_and_permissions() -> None:
             "amount": "10",
             "currency": "USD",
             "fx_rate_to_base": "150",
+            "title": "Sushi dinner",
             "category": "food",
             "expense_time": datetime.now(timezone.utc).isoformat(),
         },
@@ -58,6 +59,7 @@ def test_trip_flow_and_permissions() -> None:
     assert expense_resp.status_code == 201
     expense_id = expense_resp.json()["id"]
     assert expense_resp.json()["amount_in_base"] == "1500"
+    assert expense_resp.json()["title"] == "Sushi dinner"
 
     owner_edit = client.patch(
         f"/trips/{trip_id}/expenses/{expense_id}",

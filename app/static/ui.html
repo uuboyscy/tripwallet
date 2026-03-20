@@ -515,6 +515,17 @@
             </div>
           </section>
 
+          <section class="rounded-[1.4rem] border border-slate-100 bg-white p-5 shadow-sm">
+            <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Title</label>
+            <input
+              id="expense-title"
+              class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500"
+              placeholder="Dinner at Sapporo Kani-Honke"
+              type="text"
+            />
+            <p class="mt-2 text-sm font-medium text-slate-500">A short title shown in the trip expense list.</p>
+          </section>
+
           <section class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="rounded-[1.4rem] border border-slate-100 bg-white p-4 shadow-sm">
               <div class="flex items-center justify-between gap-4">
@@ -681,8 +692,12 @@
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div class="md:col-span-2">
-          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Category / Title</label>
-          <input id="detail-name" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" />
+          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Title</label>
+          <input id="detail-title" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" />
+        </div>
+        <div>
+          <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Category</label>
+          <input id="detail-category" class="w-full rounded-xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" />
         </div>
         <div>
           <label class="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Amount</label>
@@ -1441,6 +1456,7 @@
       const meta = categoryMeta(expense.category);
       const myShareOriginal = computeShareOriginal(expense, state.me?.id);
       const isMine = myShareOriginal > 0.000001;
+      const title = expense.title || expense.category || "Untitled expense";
       return `
         <button
           type="button"
@@ -1451,13 +1467,13 @@
             <span class="material-symbols-outlined">${meta.icon}</span>
           </div>
           <div class="min-w-0 flex-1">
-            <h5 class="truncate font-bold text-slate-900">${escapeHtml(expense.category || "Untitled expense")}</h5>
+            <h5 class="truncate font-bold text-slate-900">${escapeHtml(title)}</h5>
             <div class="mt-1 flex flex-wrap items-center gap-2">
               <div class="flex -space-x-1.5">
                 ${expenseParticipantAvatars(expense)}
               </div>
               <span class="text-[11px] font-medium text-slate-500">
-                Paid by ${escapeHtml(userNameById(expense.paid_by_user_id))} &middot; ${(expense.split_with_user_ids || []).length} people
+                ${escapeHtml(categoryMeta(expense.category).label)} &middot; Paid by ${escapeHtml(userNameById(expense.paid_by_user_id))} &middot; ${(expense.split_with_user_ids || []).length} people
               </span>
             </div>
           </div>
@@ -1740,6 +1756,7 @@
         amount: String(amount),
         currency,
         target_currency: state.selectedTrip.base_currency,
+        title: el("expense-title").value.trim(),
         category: state.selectedCategory,
         expense_time: el("expense-time").value ? new Date(el("expense-time").value).toISOString() : new Date().toISOString(),
         paid_by_user_id: paidBy,
@@ -1782,6 +1799,7 @@
 
     function resetExpenseForm() {
       el("expense-amount").value = "";
+      el("expense-title").value = "";
       el("expense-fx").value = "";
       el("expense-note").value = "";
       state.selectedCategory = "food";
@@ -1907,19 +1925,19 @@
         el("member-bars").innerHTML = `<p class="text-sm font-medium text-slate-500">No member contribution data yet.</p>`;
         return;
       }
-      const maxValue = Number(members[0][1] || 1);
+      const total = members.reduce((sum, [, value]) => sum + Number(value || 0), 0);
       el("member-bars").innerHTML = members.map(([userId, value]) => {
         const numeric = Number(value);
-        const height = maxValue > 0 ? (numeric / maxValue) * 100 : 0;
+        const sharePct = total > 0 ? (numeric / total) * 100 : 0;
         return `
           <div class="flex h-full flex-1 flex-col items-center justify-end gap-3">
             <div class="text-center">
               <div class="text-xs font-extrabold text-slate-700">${escapeHtml(formatMoney(base, numeric))}</div>
-              <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">${height.toFixed(0)}%</div>
+              <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">${sharePct.toFixed(0)}%</div>
             </div>
             <div class="flex w-full flex-1 items-end">
               <div class="group relative flex h-full w-full items-end overflow-hidden rounded-t-lg bg-sky-100">
-                <div class="w-full rounded-t-lg bg-sky-500 transition-colors group-hover:bg-sky-400" style="height:${Math.max(height, 6)}%"></div>
+                <div class="w-full rounded-t-lg bg-sky-500 transition-colors group-hover:bg-sky-400" style="height:${Math.max(sharePct, 6)}%"></div>
                 <div class="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-slate-800 px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
                   ${escapeHtml(formatMoney(base, numeric))}
                 </div>
@@ -2016,7 +2034,8 @@
       if (!expense) return;
 
       state.selectedExpenseId = expenseId;
-      el("detail-name").value = expense.category || "";
+      el("detail-title").value = expense.title || "";
+      el("detail-category").value = expense.category || "";
       el("detail-amount").value = expense.amount;
       el("detail-paid-by").value = expense.paid_by_user_id;
       el("detail-time").value = formatDateTimeInput(expense.expense_time);
@@ -2042,7 +2061,8 @@
         if (!state.selectedTrip || !state.selectedExpenseId) return;
         const paidBy = el("detail-paid-by").value;
         const payload = {
-          category: el("detail-name").value.trim(),
+          title: el("detail-title").value.trim(),
+          category: el("detail-category").value.trim(),
           amount: String(el("detail-amount").value),
           paid_by_user_id: paidBy,
           owner_user_id: paidBy,
