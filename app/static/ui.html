@@ -638,7 +638,10 @@
 
           <div class="rounded-[1.6rem] border border-slate-200 bg-white p-6 shadow-sm md:col-span-12 lg:col-span-8">
             <div class="mb-8 flex items-center justify-between">
-              <h3 class="font-bold text-slate-800">Spending by Member</h3>
+              <div>
+                <h3 class="font-bold text-slate-800">Spending by Member</h3>
+                <p class="mt-1 text-xs font-medium text-slate-500">Who paid upfront when the expense happened.</p>
+              </div>
               <div class="flex items-center gap-2">
                 <span class="h-2.5 w-2.5 rounded-full bg-sky-500"></span>
                 <span class="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Contribution</span>
@@ -656,6 +659,20 @@
             <button type="button" class="mt-6 w-full rounded-xl bg-white/20 py-3 text-sm font-bold transition-colors hover:bg-white/30" onclick="showToast('Settlement plan is shown inline below.', 'info')">
               View All Debts
             </button>
+          </div>
+
+          <div class="rounded-[1.6rem] border border-slate-200 bg-white p-6 shadow-sm md:col-span-12">
+            <div class="mb-8 flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-slate-800">Final Spending by Member</h3>
+                <p class="mt-1 text-xs font-medium text-slate-500">Actual spend per member after the split is applied.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                <span class="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">After Split</span>
+              </div>
+            </div>
+            <div id="final-member-bars" class="flex h-56 items-end justify-between gap-4 px-2"></div>
           </div>
         </div>
       </section>
@@ -1322,6 +1339,16 @@
       return state.expenses.reduce((sum, expense) => sum + computeShareBase(expense, state.me.id), 0);
     }
 
+    function computeFinalSpendingByMember() {
+      return state.members
+        .map((member) => [
+          member.user_id,
+          state.expenses.reduce((sum, expense) => sum + computeShareBase(expense, member.user_id), 0),
+        ])
+        .filter(([, value]) => value > 0.000001)
+        .sort((a, b) => Number(b[1]) - Number(a[1]));
+    }
+
     function computeBalances() {
       const balances = {};
       state.members.forEach((member) => {
@@ -1835,6 +1862,7 @@
         el("category-legend").innerHTML = `<p class="text-sm font-medium text-slate-500">Select a trip to load analytics.</p>`;
         el("high-impact-list").innerHTML = `<p class="text-sm font-medium text-slate-500">No category data yet.</p>`;
         el("member-bars").innerHTML = "";
+        el("final-member-bars").innerHTML = "";
         el("settle-up-list").innerHTML = `<div class="rounded-xl border border-white/10 bg-white/10 px-4 py-4 text-sm text-slate-100">Settlement suggestions appear here after expenses are added.</div>`;
         return;
       }
@@ -1845,11 +1873,21 @@
         .sort((a, b) => Number(b[1]) - Number(a[1]));
       const members = Object.entries(state.summary.total_spending_by_member || {})
         .sort((a, b) => Number(b[1]) - Number(a[1]));
+      const finalMembers = computeFinalSpendingByMember();
 
       el("analytics-total").textContent = formatMoney(base, total);
       renderCategoryDonut(categories, total, base);
       renderHighImpact(categories, total, base);
-      renderMemberBars(members, base);
+      renderMemberBars("member-bars", members, base, {
+        fillClass: "bg-sky-500",
+        hoverClass: "group-hover:bg-sky-400",
+        emptyMessage: "No member contribution data yet.",
+      });
+      renderMemberBars("final-member-bars", finalMembers, base, {
+        fillClass: "bg-emerald-500",
+        hoverClass: "group-hover:bg-emerald-400",
+        emptyMessage: "No final spend data yet.",
+      });
       renderSettlementPlan(base);
     }
 
@@ -1920,13 +1958,16 @@
       }).join("");
     }
 
-    function renderMemberBars(members, base) {
+    function renderMemberBars(containerId, members, base, options = {}) {
+      const fillClass = options.fillClass || "bg-sky-500";
+      const hoverClass = options.hoverClass || "group-hover:bg-sky-400";
+      const emptyMessage = options.emptyMessage || "No member data yet.";
       if (!members.length) {
-        el("member-bars").innerHTML = `<p class="text-sm font-medium text-slate-500">No member contribution data yet.</p>`;
+        el(containerId).innerHTML = `<p class="text-sm font-medium text-slate-500">${escapeHtml(emptyMessage)}</p>`;
         return;
       }
       const total = members.reduce((sum, [, value]) => sum + Number(value || 0), 0);
-      el("member-bars").innerHTML = members.map(([userId, value]) => {
+      el(containerId).innerHTML = members.map(([userId, value]) => {
         const numeric = Number(value);
         const sharePct = total > 0 ? (numeric / total) * 100 : 0;
         return `
@@ -1937,7 +1978,7 @@
             </div>
             <div class="flex w-full flex-1 items-end">
               <div class="group relative flex h-full w-full items-end overflow-hidden rounded-t-lg bg-sky-100">
-                <div class="w-full rounded-t-lg bg-sky-500 transition-colors group-hover:bg-sky-400" style="height:${Math.max(sharePct, 6)}%"></div>
+                <div class="w-full rounded-t-lg transition-colors ${fillClass} ${hoverClass}" style="height:${Math.max(sharePct, 6)}%"></div>
                 <div class="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-slate-800 px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
                   ${escapeHtml(formatMoney(base, numeric))}
                 </div>
