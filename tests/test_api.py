@@ -51,6 +51,7 @@ def test_trip_flow_and_permissions() -> None:
             "amount": "10",
             "currency": "USD",
             "fx_rate_to_base": "150",
+            "title": "Sushi dinner",
             "category": "food",
             "expense_time": datetime.now(timezone.utc).isoformat(),
         },
@@ -58,6 +59,7 @@ def test_trip_flow_and_permissions() -> None:
     assert expense_resp.status_code == 201
     expense_id = expense_resp.json()["id"]
     assert expense_resp.json()["amount_in_base"] == "1500"
+    assert expense_resp.json()["title"] == "Sushi dinner"
 
     owner_edit = client.patch(
         f"/trips/{trip_id}/expenses/{expense_id}",
@@ -76,7 +78,8 @@ def test_trip_flow_and_permissions() -> None:
 def test_ui_page_available() -> None:
     response = client.get('/ui')
     assert response.status_code == 200
-    assert 'TripWallet MVP UI' in response.text
+    assert 'TripWallet' in response.text
+    assert 'Quick Access' in response.text
 
 
 def test_expense_uses_latest_fx_and_target_currency() -> None:

@@ -102,6 +102,7 @@ class Expense(BaseModel):
     amount_in_target: Decimal
     fx_rate_to_base: Decimal
     amount_in_base: Decimal
+    title: str | None = None
     category: str
     note: str | None = None
     split_mode: str
@@ -178,6 +179,7 @@ class CreateExpenseRequest(BaseModel):
     target_currency: str | None = Field(default=None, min_length=2, max_length=8)
     fx_rate_to_target: Decimal | None = Field(default=None, gt=0)
     fx_rate_to_base: Decimal | None = Field(default=None, gt=0)
+    title: str | None = None
     category: str
     expense_time: datetime
     paid_by_user_id: UUID | None = None
@@ -196,6 +198,7 @@ class UpdateExpenseRequest(BaseModel):
     target_currency: str | None = Field(default=None, min_length=2, max_length=8)
     fx_rate_to_target: Decimal | None = Field(default=None, gt=0)
     fx_rate_to_base: Decimal | None = Field(default=None, gt=0)
+    title: str | None = None
     category: str | None = None
     expense_time: datetime | None = None
     paid_by_user_id: UUID | None = None
@@ -219,6 +222,7 @@ class ExpenseResponse(BaseModel):
     amount_in_target: Decimal
     fx_rate_to_base: Decimal
     amount_in_base: Decimal
+    title: str | None = None
     category: str
     note: str | None = None
     split_mode: str
@@ -616,6 +620,7 @@ def create_expense(trip_id: UUID, payload: CreateExpenseRequest, user: User = De
         amount_in_target=amount_in_target,
         fx_rate_to_base=fx,
         amount_in_base=amount_in_base,
+        title=payload.title,
         category=payload.category,
         note=payload.note,
         split_mode=split_mode,
