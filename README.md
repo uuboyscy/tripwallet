@@ -33,6 +33,22 @@ Run the test suite with:
 uv run pytest
 ```
 
+## Data storage
+
+TripWallet stores users, trips, members, invites, and expenses in SQLite. By default, the database file is:
+
+```text
+data/tripwallet.db
+```
+
+The directory and database are created automatically. To store the database elsewhere, set an absolute or project-relative path:
+
+```bash
+TRIPWALLET_DB_PATH=/path/to/tripwallet.db uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+For a simple backup, stop the app and copy `data/tripwallet.db` to a safe location. The manual GitHub Action uses an ephemeral runner, so its database is deleted when the workflow ends.
+
 Open:
 - API docs: `http://127.0.0.1:8000/docs`
 - MVP UI: `http://127.0.0.1:8000/ui`
@@ -56,4 +72,5 @@ Manual trigger behavior:
 5. keep job alive until manually cancelled
 
 ## Current architecture note
-This MVP uses in-memory storage for fast iteration. Next step is replacing in-memory stores with Postgres + ORM models/migrations.
+
+This small self-hosted deployment uses SQLite with WAL mode. If the service later needs multiple application servers or substantially more concurrent writes, migrate the storage layer to Postgres.

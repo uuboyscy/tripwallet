@@ -2,3 +2,6 @@ __pycache__/
 .pytest_cache/
 .env
 .venv/
+data/*.db
+data/*.db-shm
+data/*.db-wal

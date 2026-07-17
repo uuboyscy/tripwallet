@@ -1,8 +1,15 @@
+import os
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.main import app
+test_data_directory = tempfile.TemporaryDirectory()
+os.environ["TRIPWALLET_DB_PATH"] = str(Path(test_data_directory.name) / "tripwallet-test.db")
+
+from app.main import DATABASE_PATH, Trip, User, app  # noqa: E402
+from app.storage import SQLiteStore  # noqa: E402
 
 
 client = TestClient(app)
@@ -74,6 +81,43 @@ def test_trip_flow_and_permissions() -> None:
     assert body["total_spending_in_base"] == "1500"
     assert body["total_spending_by_category"]["food"] == "1500"
 
+    member_edit = client.patch(
+        f"/trips/{trip_id}/expenses/{expense_id}",
+        headers=auth_header(member_token),
+        json={"note": "updated in SQLite"},
+    )
+    assert member_edit.status_code == 200
+    assert member_edit.json()["note"] == "updated in SQLite"
+
+    delete_response = client.delete(
+        f"/trips/{trip_id}/expenses/{expense_id}",
+        headers=auth_header(member_token),
+    )
+    assert delete_response.status_code == 204
+
+    expenses_response = client.get(
+        f"/trips/{trip_id}/expenses",
+        headers=auth_header(owner_token),
+    )
+    assert expenses_response.status_code == 200
+    assert expenses_response.json() == []
+
+    member_response = client.get("/me", headers=auth_header(member_token))
+    assert member_response.status_code == 200
+
+    remove_member_response = client.delete(
+        f"/trips/{trip_id}/members/{member_response.json()['id']}",
+        headers=auth_header(owner_token),
+    )
+    assert remove_member_response.status_code == 204
+
+    members_response = client.get(
+        f"/trips/{trip_id}/members",
+        headers=auth_header(owner_token),
+    )
+    assert members_response.status_code == 200
+    assert len(members_response.json()) == 1
+
 
 def test_ui_page_available() -> None:
     response = client.get('/ui')
@@ -120,3 +164,25 @@ def test_default_testing_accounts_can_login() -> None:
     user2 = client.post("/auth/login", json={"email": "user2@example.com", "password": "123456"})
     assert user2.status_code == 200
     assert user2.json()["access_token"]
+
+
+def test_data_is_persisted_in_sqlite() -> None:
+    token = signup("persistent@example.com", "Persistent User")
+    trip_response = client.post(
+        "/trips",
+        headers=auth_header(token),
+        json={"name": "Persistent Trip", "base_currency": "TWD"},
+    )
+    assert trip_response.status_code == 200
+
+    reopened_store = SQLiteStore(DATABASE_PATH)
+    reopened_store.initialize()
+
+    user_data = reopened_store.get_user_by_email("persistent@example.com")
+    trip_data = reopened_store.get_trip(trip_response.json()["id"])
+
+    assert DATABASE_PATH.is_file()
+    assert user_data is not None
+    assert User.model_validate_json(user_data).display_name == "Persistent User"
+    assert trip_data is not None
+    assert Trip.model_validate_json(trip_data).name == "Persistent Trip"

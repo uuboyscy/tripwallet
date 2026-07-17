@@ -37,7 +37,7 @@ jobs:
           echo "Running from: $(pwd)"
           uv run --locked --no-dev python -V
 
-          nohup uv run --locked --no-dev uvicorn main:app --app-dir app --host 0.0.0.0 --port 8000 --log-level debug > backend.log 2>&1 &
+          nohup uv run --locked --no-dev uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level debug > backend.log 2>&1 &
           BACKEND_PID=$!
 
           for i in {1..60}; do
