@@ -11,13 +11,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
-          python-version: "3.11"
+          python-version: "3.13"
+          enable-cache: true
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: uv sync --locked --no-dev
 
       - name: Validate NGROK_TOKEN secret
         env:
@@ -34,9 +35,9 @@ jobs:
           set -euo pipefail
 
           echo "Running from: $(pwd)"
-          python -V
+          uv run --locked --no-dev python -V
 
-          nohup python -m uvicorn main:app --app-dir app --host 0.0.0.0 --port 8000 --log-level debug > backend.log 2>&1 &
+          nohup uv run --locked --no-dev uvicorn main:app --app-dir app --host 0.0.0.0 --port 8000 --log-level debug > backend.log 2>&1 &
           BACKEND_PID=$!
 
           for i in {1..60}; do
@@ -98,7 +99,7 @@ jobs:
           sleep 5
           curl --fail http://127.0.0.1:4040/api/tunnels > tunnels.json
           echo "Public URL(s):"
-          python -c "import json; t=json.load(open('tunnels.json')).get('tunnels', []); [print('- ' + x.get('public_url','')) for x in t]; (_ for _ in ()).throw(SystemExit('No ngrok tunnel was created')) if not t else None"
+          uv run --locked --no-dev python -c "import json; t=json.load(open('tunnels.json')).get('tunnels', []); [print('- ' + x.get('public_url','')) for x in t]; (_ for _ in ()).throw(SystemExit('No ngrok tunnel was created')) if not t else None"
 
       - name: Keep alive until manually cancelled
         run: |

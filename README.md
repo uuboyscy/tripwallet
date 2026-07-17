@@ -17,11 +17,20 @@ TripWallet is a lightweight trip-based expense sharing app MVP with:
   - `GET /ui` (single-page MVP UI for auth, trips, invites, expenses, analytics)
 
 ## Run locally
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run:
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uv sync
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+The project pins Python 3.13 in `.python-version`; uv downloads it automatically when needed.
+
+Run the test suite with:
+
+```bash
+uv run pytest
 ```
 
 Open:
