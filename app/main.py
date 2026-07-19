@@ -179,6 +179,14 @@ class InviteResponse(BaseModel):
     expires_at: datetime | None
 
 
+class InvitePreviewResponse(BaseModel):
+    invite_code: str
+    trip_id: UUID
+    trip_name: str
+    base_currency: str
+    expires_at: datetime | None
+
+
 class MemberResponse(BaseModel):
     user_id: UUID
     role: MemberRole
@@ -348,6 +356,19 @@ def serialize_trip(trip: Trip) -> TripResponse:
     return TripResponse(**trip.model_dump())
 
 
+def load_active_invite(invite_code: str) -> TripInvite:
+    invite_data = storage.get_invite_by_code(invite_code)
+    if not invite_data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite code not found")
+
+    invite = TripInvite.model_validate_json(invite_data)
+    if not invite.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite inactive")
+    if invite.expires_at and invite.expires_at < now_utc():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite expired")
+    return invite
+
+
 def create_user(email: str, password: str, display_name: str) -> User:
     user = User(
         id=uuid4(),
@@ -431,7 +452,13 @@ def root() -> dict[str, str]:
 
 @app.get("/ui", include_in_schema=False)
 def ui() -> FileResponse:
-    return FileResponse(Path(__file__).resolve().parent / "static/ui.html")
+    return FileResponse(
+        Path(__file__).resolve().parent / "static/ui.html",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+            "Pragma": "no-cache",
+        },
+    )
 
 
 @app.get("/health")
@@ -531,22 +558,29 @@ def create_invite(trip_id: UUID, payload: InviteRequest, user: User = Depends(cu
     return InviteResponse(invite_code=code, expires_at=expires_at)
 
 
+@app.get("/invites/{invite_code}", response_model=InvitePreviewResponse)
+def preview_invite(invite_code: str) -> InvitePreviewResponse:
+    invite = load_active_invite(invite_code)
+    trip = load_trip(invite.trip_id)
+    if not trip:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
+    return InvitePreviewResponse(
+        invite_code=invite.invite_code,
+        trip_id=trip.id,
+        trip_name=trip.name,
+        base_currency=trip.base_currency,
+        expires_at=invite.expires_at,
+    )
+
+
 @app.post("/trips/join", status_code=status.HTTP_201_CREATED)
 def join_trip(payload: JoinTripRequest, user: User = Depends(current_user)) -> dict[str, str]:
-    invite_data = storage.get_invite_by_code(payload.invite_code)
-    if not invite_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite code not found")
-
-    invite = TripInvite.model_validate_json(invite_data)
+    invite = load_active_invite(payload.invite_code)
     trip_id = invite.trip_id
-    if not invite.is_active:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite inactive")
-    if invite.expires_at and invite.expires_at < now_utc():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite expired")
 
     existing_member = storage.get_member(str(trip_id), str(user.id))
     if existing_member:
-        return {"status": "already_joined"}
+        return {"status": "already_joined", "trip_id": str(trip_id)}
 
     try:
         storage.insert_member(
@@ -559,8 +593,8 @@ def join_trip(payload: JoinTripRequest, user: User = Depends(current_user)) -> d
             )
         )
     except sqlite3.IntegrityError:
-        return {"status": "already_joined"}
-    return {"status": "joined"}
+        return {"status": "already_joined", "trip_id": str(trip_id)}
+    return {"status": "joined", "trip_id": str(trip_id)}
 
 
 @app.get("/trips/{trip_id}/members", response_model=list[MemberResponse])

@@ -27,7 +27,7 @@
   <style>
     body {
       min-height: 100vh;
-      font-family: "Public Sans", sans-serif;
+      font-family: "Public Sans", "PingFang TC", "Hiragino Sans", "Yu Gothic", sans-serif;
       background:
         radial-gradient(circle at top left, rgba(14, 165, 233, 0.10), transparent 32%),
         linear-gradient(180deg, #f8fbff 0%, #f8fafc 48%, #eef2ff 100%);
@@ -39,6 +39,10 @@
 
     .drawer-transition {
       transition: transform 0.25s ease;
+    }
+
+    #trip-drawer {
+      -webkit-overflow-scrolling: touch;
     }
 
     .modal-transition {
@@ -89,12 +93,44 @@
       text-align: center;
       padding: 1rem;
     }
+
+    .language-select {
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='m6 8 4 4 4-4' stroke='%2364758b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-position: right 0.65rem center;
+      background-repeat: no-repeat;
+      background-size: 0.9rem;
+      padding-right: 2.35rem !important;
+    }
+
+    .header-trip-select {
+      -webkit-appearance: none;
+      appearance: none;
+      background-color: transparent;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='m6 8 4 4 4-4' stroke='%230ea5e9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-position: right 0.05rem center;
+      background-repeat: no-repeat;
+      background-size: 1rem;
+      padding-right: 1.35rem !important;
+    }
   </style>
 </head>
 <body class="text-slate-900 antialiased">
   <div id="toast-root" class="fixed inset-x-0 top-4 z-[80] flex flex-col items-center gap-2 px-4 pointer-events-none"></div>
 
   <section id="login-screen" class="relative min-h-screen overflow-hidden px-4 py-8">
+    <div class="absolute right-4 top-4 z-20">
+      <select
+        class="language-select rounded-xl border border-white/80 bg-white/90 px-3 py-2 text-sm font-bold text-slate-600 shadow-sm backdrop-blur-md focus:border-sky-400 focus:ring-sky-400"
+        aria-label="Language"
+        onchange="setLanguage(this.value)"
+      >
+        <option value="en">English</option>
+        <option value="zh-TW">繁體中文</option>
+        <option value="ja">日本語</option>
+      </select>
+    </div>
     <div class="absolute inset-0 z-0">
       <img
         class="h-full w-full object-cover opacity-10 grayscale"
@@ -115,12 +151,22 @@
         </div>
 
         <div class="rounded-[2rem] border border-white/80 bg-white/85 p-8 shadow-soft backdrop-blur-xl md:p-10">
+          <div id="pending-invite-banner" class="mb-6 hidden rounded-2xl border border-sky-200 bg-sky-50 p-4 text-left">
+            <div class="flex items-start gap-3">
+              <span class="material-symbols-outlined rounded-xl bg-sky-600 p-2 text-white">group_add</span>
+              <div class="min-w-0">
+                <p id="pending-invite-title" class="font-extrabold text-sky-900">Trip invitation</p>
+                <p id="pending-invite-message" class="mt-1 text-sm font-medium leading-6 text-sky-700"></p>
+              </div>
+            </div>
+          </div>
+
           <div class="mb-6 inline-flex rounded-2xl bg-slate-100 p-1 text-sm font-bold text-slate-500">
             <button
               id="auth-login-tab"
               type="button"
               class="rounded-xl bg-white px-4 py-2 text-sky-700 shadow-sm transition-colors"
-              onclick="setAuthMode('login')"
+              onclick="switchAuthMode('login')"
             >
               Login
             </button>
@@ -128,13 +174,13 @@
               id="auth-signup-tab"
               type="button"
               class="rounded-xl px-4 py-2 transition-colors"
-              onclick="setAuthMode('signup')"
+              onclick="switchAuthMode('signup')"
             >
               Create Account
             </button>
           </div>
 
-          <form class="space-y-6" onsubmit="handleAuthSubmit(event)">
+          <form class="space-y-6" autocomplete="on" onsubmit="handleAuthSubmit(event)">
             <div id="signup-name-wrap" class="hidden space-y-2">
               <label class="ml-1 block text-sm font-semibold text-slate-700" for="signup-name">Display name</label>
               <div class="relative">
@@ -145,6 +191,7 @@
                   id="signup-name"
                   class="block w-full rounded-xl border-none bg-slate-50 py-3.5 pl-11 pr-4 text-slate-900 ring-1 ring-slate-200 transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500"
                   placeholder="How should the group know you?"
+                  autocomplete="name"
                   type="text"
                 />
               </div>
@@ -160,6 +207,7 @@
                   id="auth-email"
                   class="block w-full rounded-xl border-none bg-slate-50 py-3.5 pl-11 pr-4 text-slate-900 ring-1 ring-slate-200 transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500"
                   placeholder="name@example.com"
+                  autocomplete="email"
                   required
                   type="email"
                 />
@@ -181,10 +229,24 @@
                   id="auth-password"
                   class="block w-full rounded-xl border-none bg-slate-50 py-3.5 pl-11 pr-4 text-slate-900 ring-1 ring-slate-200 transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500"
                   placeholder="At least 6 characters"
+                  autocomplete="current-password"
                   required
                   type="password"
                 />
               </div>
+            </div>
+
+            <div id="remember-password-wrap" class="flex items-center justify-between gap-3 px-1">
+              <label class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-600" for="remember-password">
+                <input
+                  id="remember-password"
+                  class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  type="checkbox"
+                  onchange="handleRememberPasswordChange()"
+                />
+                <span>Remember password</span>
+              </label>
+              <span class="text-right text-xs font-medium text-slate-400">Private devices only</span>
             </div>
 
             <button
@@ -255,7 +317,7 @@
 
     <aside
       id="trip-drawer"
-      class="drawer-transition thin-scrollbar fixed inset-y-0 left-0 z-50 flex w-full max-w-sm -translate-x-full flex-col overflow-y-auto border-r border-slate-200 bg-white px-5 py-5 shadow-2xl"
+      class="drawer-transition thin-scrollbar fixed inset-y-0 left-0 z-50 flex w-full max-w-sm -translate-x-full flex-col overflow-y-auto overscroll-contain border-r border-slate-200 bg-white px-5 pb-32 pt-5 shadow-2xl"
     >
       <div class="mb-5 flex items-center justify-between">
         <div>
@@ -299,7 +361,7 @@
             <select id="trip-base" class="w-full rounded-2xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" onchange="toggleCurrencyCustomInput('trip-base', 'trip-base-custom')"></select>
             <input id="trip-base-custom" class="hidden w-full rounded-2xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold uppercase ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" placeholder="Custom currency code" />
           </div>
-          <button type="button" class="w-full rounded-2xl bg-sky-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.99]" onclick="createTrip()">
+          <button id="trip-create-button" type="button" class="w-full rounded-2xl bg-sky-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.99]" onclick="createTrip()">
             Create Trip
           </button>
         </div>
@@ -315,7 +377,7 @@
         </div>
         <div class="space-y-3">
           <input id="join-code" class="w-full rounded-2xl border-none bg-slate-50 px-4 py-3 text-sm font-semibold uppercase ring-1 ring-slate-200 focus:ring-2 focus:ring-sky-500" placeholder="Paste invite code" />
-          <button type="button" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="joinTrip()">
+          <button id="join-trip-button" type="button" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="joinTrip()">
             Join Trip
           </button>
         </div>
@@ -339,33 +401,49 @@
         <div id="invite-result" class="mt-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-100">No invite generated yet.</div>
       </section>
 
-      <section class="flex min-h-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section class="mb-4 shrink-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="mb-4 flex items-center justify-between">
           <div>
             <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-slate-400">Your Trips</p>
             <h3 class="text-lg font-extrabold tracking-tight text-slate-900">Switch Context</h3>
           </div>
-          <button type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="loadTrips()">
+          <button id="trip-list-refresh-button" type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="refreshTrips()">
             Refresh
           </button>
         </div>
-        <div id="trip-list" class="thin-scrollbar space-y-3 overflow-y-auto"></div>
+        <div id="trip-list" class="space-y-3"></div>
       </section>
     </aside>
 
     <header class="fixed top-0 left-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/90 px-4 shadow-sm backdrop-blur-md">
-      <div class="flex items-center gap-3">
-        <button type="button" class="rounded-full p-2 transition-colors hover:bg-slate-100" onclick="toggleDrawer(true)">
+      <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+        <button type="button" class="shrink-0 rounded-full p-2 transition-colors hover:bg-slate-100" onclick="toggleDrawer(true)">
           <span class="material-symbols-outlined text-sky-600">menu</span>
         </button>
-        <div>
+        <div class="min-w-0 max-w-[128px] sm:max-w-[240px]">
           <p class="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">TripWallet</p>
-          <h1 id="header-title" class="text-lg font-bold tracking-tight text-slate-900">Dashboard</h1>
+          <select
+            id="header-trip-select"
+            class="header-trip-select block w-full cursor-pointer truncate border-none p-0 text-lg font-bold tracking-tight text-slate-900 ring-0 focus:ring-0 disabled:cursor-default disabled:text-slate-500"
+            aria-label="Switch trip"
+            onchange="selectTrip(this.value)"
+          >
+            <option value="">Dashboard</option>
+          </select>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <button type="button" class="hidden rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 md:inline-flex" onclick="loadCurrentTripContext()">
+      <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+        <select
+          class="language-select max-w-[94px] rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-600 focus:border-sky-400 focus:ring-sky-400 sm:max-w-none sm:px-3 sm:text-sm"
+          aria-label="Language"
+          onchange="setLanguage(this.value)"
+        >
+          <option value="en">English</option>
+          <option value="zh-TW">繁體中文</option>
+          <option value="ja">日本語</option>
+        </select>
+        <button id="header-refresh-button" type="button" class="hidden rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 md:inline-flex" aria-label="Refresh trip" onclick="refreshCurrentTripContext('header-refresh-button')">
           <span class="material-symbols-outlined">refresh</span>
         </button>
         <div class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-sm">
@@ -376,6 +454,10 @@
     </header>
 
     <main class="mx-auto mt-16 w-full max-w-5xl px-4 pt-6">
+      <div id="trip-loading-banner" class="mb-4 hidden items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-700 shadow-sm" role="status" aria-live="polite">
+        <span class="material-symbols-outlined animate-spin">progress_activity</span>
+        <span id="trip-loading-message">Switching trip...</span>
+      </div>
       <section id="no-trip-state" class="hidden">
         <div class="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-8 shadow-soft">
           <div class="absolute right-0 top-0 h-40 w-40 -translate-y-1/3 translate-x-1/4 rounded-full bg-sky-100 blur-3xl"></div>
@@ -480,7 +562,7 @@
               <h3 class="text-2xl font-extrabold tracking-tight text-slate-900">Trip Details</h3>
             </div>
             <div class="flex items-center gap-2">
-              <button type="button" class="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="loadCurrentTripContext()">
+              <button id="trip-detail-refresh-button" type="button" class="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900" onclick="refreshCurrentTripContext('trip-detail-refresh-button')">
                 Refresh
               </button>
               <button type="button" class="rounded-2xl bg-sky-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-200 transition-colors hover:bg-sky-700" onclick="setScreen('add')">
@@ -593,7 +675,7 @@
             </div>
           </section>
 
-          <button type="button" class="flex w-full items-center justify-center gap-2 rounded-[1.4rem] bg-sky-600 py-4 font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.98]" onclick="createExpense()">
+          <button id="create-expense-button" type="button" class="flex w-full items-center justify-center gap-2 rounded-[1.4rem] bg-sky-600 py-4 font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.98]" onclick="createExpense()">
             <span class="material-symbols-outlined">add_circle</span>
             Add Expense
           </button>
@@ -750,7 +832,7 @@
         </div>
       </div>
 
-      <button type="button" class="mt-6 flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-sky-600 py-4 font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.98]" onclick="saveExpenseDetail()">
+      <button id="detail-save-button" type="button" class="mt-6 flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-sky-600 py-4 font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.98]" onclick="saveExpenseDetail()">
         <span class="material-symbols-outlined">save</span>
         Save Changes
       </button>
@@ -759,6 +841,8 @@
 
   <script>
     const KNOWN_CURRENCIES = ["TWD", "JPY", "EUR", "USD", "GBP", "CNY"];
+    const REMEMBERED_CREDENTIALS_KEY = "tripwallet_remembered_credentials";
+    const API_TIMEOUT_MS = 15000;
     const USD_VALUE_BY_CURRENCY = { TWD: 0.031, JPY: 0.0067, EUR: 1.08, USD: 1, GBP: 1.27, CNY: 0.139 };
     const CURRENCY_SYMBOLS = {
       USD: "$",
@@ -773,6 +857,536 @@
       "https://lh3.googleusercontent.com/aida-public/AB6AXuC6tEFxUl6xufBZIgWYsLSZ7UvZC_f4FYetlZ-3joDGwCQuVHgwHi6htpTGEBdSSnXtqj1NsodtjPmNenShgaIrfEtFSAzen3NYWsqj13a2oaOteTVAxf9CYlkGHj62HKQarIUqRLVfXtiZpcEmuFh1jNO4-Wr79BaaV6zzNDtBy3fOZydWxjRtPGuQBpayGmD9EVlYIz2MzHjTjByD20iIAQF5mz53Lh6AVDnfJAUUkwoGxWiMDKnEeyjfIdPWKgqYtgB5kDIbQRY",
       "https://lh3.googleusercontent.com/aida-public/AB6AXuA1bbQDfMYOiV0mPXZiqhVTuVsJio1KqNaEkHMBN811gRecFP7hJJFS2H9wJ53j1F_2GpLIIgOw6zdqpSNJHiUKQUUBTSs7GMs4gNNAVpf0oqpk_svy82TTeNcvkCgpjddbrk8emrezd5hK5Iwimt5nHdFm15qpc4uunt3SNOTqAwX0inpoIUG4w6htE0JxcC3sQZ1-jO4gXsJ1HX18JZEQtGwSMmJ3x6uBHQ5PkKAkM4OJVgcfMK7laooX4_qp0h9YxJwP_EhpZYs",
     ];
+    const LANGUAGE_LOCALES = { en: "en-US", "zh-TW": "zh-TW", ja: "ja-JP" };
+    const TRANSLATIONS = {
+      "zh-TW": {
+        "Language": "語言",
+        "Switch trip": "切換旅程",
+        "Travel background": "旅行背景",
+        "Trip cover": "旅程封面",
+        "Simplify your travel expenses": "輕鬆管理旅行支出",
+        "Login": "登入",
+        "Create Account": "建立帳號",
+        "Display name": "顯示名稱",
+        "How should the group know you?": "同行夥伴要怎麼稱呼你？",
+        "Email address": "電子郵件",
+        "Password": "密碼",
+        "Use demo password": "使用示範密碼",
+        "At least 6 characters": "至少 6 個字元",
+        "Remember password": "記住密碼",
+        "Private devices only": "僅限私人裝置",
+        "Trip invitation": "旅程邀請",
+        "Checking invitation...": "正在確認邀請…",
+        "You've been invited to {trip} ({currency}). Log in or create an account; you'll join automatically afterward.": "你受邀加入「{trip}」（{currency}）。請登入或建立帳號，完成後會自動加入。",
+        "Open this invitation by logging in or creating an account. You'll join automatically afterward.": "請登入或建立帳號以開啟這份邀請，完成後會自動加入。",
+        "This invitation link is invalid or expired.": "這個邀請連結無效或已過期。",
+        "New to TripWallet?": "第一次使用 TripWallet？",
+        "Already have an account?": "已經有帳號了？",
+        "Sign Up": "註冊",
+        "Quick Access": "快速登入",
+        "Default Accounts": "預設帳號",
+        "(c) 2026 TripWallet · Secure Travel Transactions": "© 2026 TripWallet · 安心管理旅途支出",
+        "Workspace": "工作區",
+        "Trip Control": "旅程管理",
+        "Logout": "登出",
+        "Trips": "旅程",
+        "Create a Trip": "建立旅程",
+        "Hokkaido Ski Trip": "北海道滑雪之旅",
+        "Custom currency code": "自訂貨幣代碼",
+        "Create Trip": "建立旅程",
+        "Collaborate": "一起旅行",
+        "Join by Invite Code": "使用邀請碼加入",
+        "Paste invite code": "貼上邀請碼",
+        "Join Trip": "加入旅程",
+        "Invite": "邀請",
+        "Selected Trip Access": "目前旅程邀請",
+        "Select a trip to generate a fresh invite.": "選擇旅程以產生新的邀請碼。",
+        "Generate": "產生",
+        "No invite generated yet.": "尚未產生邀請碼。",
+        "Your Trips": "你的旅程",
+        "Switch Context": "切換旅程",
+        "Refresh": "重新整理",
+        "Refresh trip": "重新整理旅程",
+        "Please wait...": "請稍候…",
+        "Request timed out. Please try again.": "請求逾時，請再試一次。",
+        "Switching trip...": "正在切換旅程…",
+        "Switching to {trip}...": "正在切換到「{trip}」…",
+        "Unable to switch trip. Your previous trip is still selected.": "無法切換旅程，已保留原本選擇的旅程。",
+        "Refreshing trips...": "正在重新整理旅程…",
+        "Trips refreshed.": "旅程已重新整理。",
+        "Unable to refresh trips.": "無法重新整理旅程。",
+        "Refreshing trip...": "正在重新整理旅程資料…",
+        "Trip refreshed.": "旅程資料已重新整理。",
+        "Unable to refresh trip.": "無法重新整理旅程資料。",
+        "Dashboard": "總覽",
+        "No Trip Selected": "尚未選擇旅程",
+        "Create or join a trip to start using the new workspace.": "建立或加入旅程，即可開始使用這個工作區。",
+        "The Stitch design is now wired into the real API. Open the menu to create a trip, join one with an invite code, or switch between existing trips.": "開啟選單即可建立旅程、使用邀請碼加入，或切換現有旅程。",
+        "Open Trip Control": "開啟旅程管理",
+        "View Analytics Layout": "查看分析頁面",
+        "Ongoing": "進行中",
+        "Archived": "已封存",
+        "Base: --": "基準貨幣：--",
+        "Select a Trip": "選擇旅程",
+        "Create or join a trip to populate this dashboard.": "建立或加入旅程後，這裡就會顯示資料。",
+        "Group Total Spend": "團體總支出",
+        "My Total Share": "我的分攤總額",
+        "0% of total group spend": "占團體總支出的 0%",
+        "Daily Average": "每日平均",
+        "Waiting for spend data": "等待支出資料",
+        "Balance Status": "結算狀態",
+        "Settled Up": "已結清",
+        "You are all clear with the group": "你與團體之間已無待付款項",
+        "Members": "成員",
+        "Trip Group": "旅程群組",
+        "Manage Trips": "管理旅程",
+        "Expenses": "支出",
+        "Trip Details": "旅程明細",
+        "Add Expense": "新增支出",
+        "Capture a new transaction for your current trip.": "為目前旅程新增一筆交易。",
+        "Amount": "金額",
+        "Currency": "貨幣",
+        "Custom code": "自訂代碼",
+        "Title": "標題",
+        "Dinner at Sapporo Kani-Honke": "札幌螃蟹本家晚餐",
+        "A short title shown in the trip expense list.": "顯示在旅程支出清單中的簡短標題。",
+        "Base Conversion": "換算為基準貨幣",
+        "Select a trip to calculate conversion": "選擇旅程以計算換匯",
+        "Auto": "自動",
+        "Manual": "手動",
+        "Manual FX Rate to Base": "手動設定基準匯率",
+        "Example: 32.45": "例如：32.45",
+        "Built-in rates are used automatically when the currency pair is known.": "若支援此貨幣組合，系統會自動使用內建匯率。",
+        "Paid By": "付款人",
+        "Expense Time": "支出時間",
+        "Category": "分類",
+        "Split Expense": "分攤支出",
+        "Equal": "平均",
+        "Custom": "自訂",
+        "Add a note or description...": "新增備註或說明…",
+        "Analytics Summary": "支出分析",
+        "Select a trip to inspect group spending.": "選擇旅程以查看團體支出。",
+        "Export Report": "匯出報表",
+        "Spending by Category": "依分類統計",
+        "Total Spent": "總支出",
+        "High Impact": "主要支出",
+        "Spending by Member": "依成員統計",
+        "Who paid upfront when the expense happened.": "查看每筆支出最初由誰付款。",
+        "Contribution": "付款占比",
+        "Settle Up": "結清款項",
+        "View All Debts": "查看所有欠款",
+        "Final Spending by Member": "成員最終支出",
+        "Actual spend per member after the split is applied.": "套用分攤後，每位成員的實際支出。",
+        "After Split": "分攤後",
+        "Add": "新增",
+        "Analytics": "分析",
+        "Expense": "支出",
+        "Edit Detail": "編輯明細",
+        "Split Mode": "分攤方式",
+        "Participants": "參與成員",
+        "Custom Split JSON": "自訂分攤 JSON",
+        "Amounts must match the expense total and use member UUID keys.": "金額總和必須等於支出總額，並以成員 UUID 作為鍵值。",
+        "Note": "備註",
+        "Save Changes": "儲存變更",
+        "Other": "其他",
+        "Unknown": "未知",
+        "Food": "餐飲",
+        "Transport": "交通",
+        "Lodging": "住宿",
+        "Activities": "活動",
+        "Shopping": "購物",
+        "Others": "其他",
+        "Travel dates not set": "尚未設定旅行日期",
+        "Starts {date}": "開始：{date}",
+        "Ends {date}": "結束：{date}",
+        "Today": "今天",
+        "Yesterday": "昨天",
+        "Account created.": "帳號已建立。",
+        "Welcome back.": "歡迎回來。",
+        "Authentication failed.": "驗證失敗。",
+        "No trips yet. Create one above or join with an invite code.": "目前沒有旅程。請在上方建立旅程，或使用邀請碼加入。",
+        "Trip created.": "旅程已建立。",
+        "Unable to create trip.": "無法建立旅程。",
+        "Trip joined.": "已加入旅程。",
+        "Unable to join trip.": "無法加入旅程。",
+        "Select a trip first.": "請先選擇旅程。",
+        "Code: {code}": "邀請碼：{code}",
+        "Invite link": "邀請連結",
+        "Copy link": "複製連結",
+        "Copy invite link": "複製邀請連結",
+        "Share this link. Recipients can log in or create an account before joining.": "分享這個連結；收件者可先登入或建立帳號，再加入旅程。",
+        "Link copied.": "連結已複製。",
+        "Unable to copy the link. Select it and copy manually.": "無法自動複製，請選取連結後手動複製。",
+        "Invitation accepted. You joined {trip}.": "邀請已接受，你已加入「{trip}」。",
+        "You are already a member of {trip}.": "你已經是「{trip}」的成員。",
+        "Unable to accept invitation.": "無法接受邀請。",
+        "Expires: {date}": "到期時間：{date}",
+        "Never": "永不",
+        "Invite generated.": "邀請碼已產生。",
+        "Unable to create invite.": "無法建立邀請碼。",
+        "Selected {trip}.": "已選擇「{trip}」。",
+        "Base: {currency}": "基準貨幣：{currency}",
+        "{percent}% of total group spend": "占團體總支出的 {percent}%",
+        "Capture a new transaction for {trip}.": "為「{trip}」新增一筆交易。",
+        "First spend day recorded": "已記錄第一天支出",
+        "New activity vs. previous day": "較前一天有新的支出",
+        "{percent}% more than previous day": "比前一天增加 {percent}%",
+        "{percent}% less than previous day": "比前一天減少 {percent}%",
+        "You Are Owed": "你應收款",
+        "{amount} should flow back to you": "你應收回 {amount}",
+        "You Owe": "你應付款",
+        "{amount} is still outstanding": "尚有 {amount} 待支付",
+        "Members will appear here after selecting a trip.": "選擇旅程後，成員會顯示在這裡。",
+        "You": "你",
+        "Owner": "擁有者",
+        "Member": "成員",
+        "No expenses yet. Add the first transaction from the Add screen.": "目前沒有支出。請從新增頁面建立第一筆交易。",
+        "Untitled expense": "未命名支出",
+        "{category} · Paid by {name} · {count} people": "{category} · {name} 付款 · {count} 人分攤",
+        "Your Share: {amount}": "你的分攤：{amount}",
+        "Not your share": "你未參與分攤",
+        "Trip members will appear here after selecting a trip.": "選擇旅程後，旅程成員會顯示在這裡。",
+        "Typed amounts exceed the expense total. Reduce the custom values.": "輸入的金額超過支出總額，請降低自訂金額。",
+        "Base Conversion ({currency})": "換算為基準貨幣（{currency}）",
+        "Choose a source currency": "選擇支出貨幣",
+        "Enter the currency you spent in.": "請輸入實際支出的貨幣。",
+        "Manual FX rate required": "需要手動輸入匯率",
+        "No built-in rate for {source} to {target}. Switch to manual and enter one.": "沒有 {source} 到 {target} 的內建匯率，請切換為手動並輸入匯率。",
+        "Manual rate in use: 1 {source} = {amount}": "使用手動匯率：1 {source} = {amount}",
+        "Auto rate loaded: 1 {source} = {amount}": "已載入自動匯率：1 {source} = {amount}",
+        "Enter a valid amount.": "請輸入有效金額。",
+        "Choose the expense currency.": "請選擇支出貨幣。",
+        "Select at least one member for the split.": "請至少選擇一位分攤成員。",
+        "Enter a valid manual FX rate.": "請輸入有效的手動匯率。",
+        "No built-in rate for {source} to {target}. Switch to manual.": "沒有 {source} 到 {target} 的內建匯率，請切換為手動。",
+        "Expense created.": "支出已建立。",
+        "Unable to create expense.": "無法建立支出。",
+        "Only the trip owner can generate invites.": "只有旅程擁有者可以產生邀請碼。",
+        "Select a trip to load analytics.": "選擇旅程以載入分析。",
+        "No category data yet.": "目前沒有分類資料。",
+        "Settlement suggestions appear here after expenses are added.": "新增支出後，結算建議會顯示在這裡。",
+        "No member contribution data yet.": "目前沒有成員付款資料。",
+        "No final spend data yet.": "目前沒有最終支出資料。",
+        "No member data yet.": "目前沒有成員資料。",
+        "Everyone is effectively settled. Add more expenses to generate a debt plan.": "目前所有人都已結清。新增更多支出後會產生還款計畫。",
+        "{from} owes {to}": "{from} 應付給 {to}",
+        "{from} should settle with {to}.": "{from} 應與 {to} 結算。",
+        "Settlement plan is shown inline below.": "結算計畫已顯示在下方。",
+        "Expense updated.": "支出已更新。",
+        "Unable to update expense.": "無法更新支出。",
+        "Logged out.": "已登出。",
+        "Session expired. Please log in again.": "工作階段已過期，請重新登入。",
+        "Email already registered": "此電子郵件已註冊",
+        "Invalid credentials": "帳號或密碼錯誤",
+        "Not a trip member": "你不是此旅程的成員",
+        "Owner role required": "此操作僅限旅程擁有者",
+        "Trip not found": "找不到旅程",
+        "Invite code not found": "找不到邀請碼",
+        "Invite inactive": "邀請碼已停用",
+        "Invite expired": "邀請碼已過期",
+        "Cannot remove owner": "無法移除旅程擁有者",
+        "Cannot edit others' expenses": "無法編輯其他人的支出",
+        "Expense not found": "找不到支出",
+        "Cannot delete others' expenses": "無法刪除其他人的支出",
+        "split_mode must be equal or custom": "分攤方式必須是平均或自訂",
+        "split_with_user_ids cannot be empty": "分攤成員不可為空",
+        "split_with_user_ids must be trip members": "分攤對象必須是旅程成員",
+        "custom_split_amounts is required": "自訂分攤需要提供各成員金額",
+        "custom split user must be a trip member": "自訂分攤對象必須是旅程成員",
+        "custom split amount must be >= 0": "自訂分攤金額不可小於 0",
+        "custom split users must match split_with_user_ids": "自訂分攤成員必須與所選成員一致",
+        "custom split must sum to amount": "自訂分攤總和必須等於支出金額",
+        "fx_rate_to_target is required": "需要提供目標貨幣匯率",
+        "fx_rate_to_base is required": "需要提供基準貨幣匯率"
+      },
+      ja: {
+        "Language": "言語",
+        "Switch trip": "旅行を切り替え",
+        "Travel background": "旅行の背景",
+        "Trip cover": "旅行のカバー",
+        "Simplify your travel expenses": "旅行の支出をかんたん管理",
+        "Login": "ログイン",
+        "Create Account": "アカウント作成",
+        "Display name": "表示名",
+        "How should the group know you?": "グループでの表示名を入力",
+        "Email address": "メールアドレス",
+        "Password": "パスワード",
+        "Use demo password": "デモ用パスワードを使用",
+        "At least 6 characters": "6文字以上",
+        "Remember password": "パスワードを保存",
+        "Private devices only": "個人端末のみ",
+        "Trip invitation": "旅行への招待",
+        "Checking invitation...": "招待を確認しています…",
+        "You've been invited to {trip} ({currency}). Log in or create an account; you'll join automatically afterward.": "「{trip}」（{currency}）に招待されています。ログインまたはアカウント作成後、自動的に参加します。",
+        "Open this invitation by logging in or creating an account. You'll join automatically afterward.": "この招待を開くにはログインまたはアカウントを作成してください。完了後、自動的に参加します。",
+        "This invitation link is invalid or expired.": "この招待リンクは無効か、有効期限が切れています。",
+        "New to TripWallet?": "TripWallet は初めてですか？",
+        "Already have an account?": "すでにアカウントをお持ちですか？",
+        "Sign Up": "登録",
+        "Quick Access": "クイックアクセス",
+        "Default Accounts": "デフォルトアカウント",
+        "(c) 2026 TripWallet · Secure Travel Transactions": "© 2026 TripWallet · 安心して旅行支出を管理",
+        "Workspace": "ワークスペース",
+        "Trip Control": "旅行管理",
+        "Logout": "ログアウト",
+        "Trips": "旅行",
+        "Create a Trip": "旅行を作成",
+        "Hokkaido Ski Trip": "北海道スキー旅行",
+        "Custom currency code": "通貨コードを入力",
+        "Create Trip": "旅行を作成",
+        "Collaborate": "共同利用",
+        "Join by Invite Code": "招待コードで参加",
+        "Paste invite code": "招待コードを貼り付け",
+        "Join Trip": "旅行に参加",
+        "Invite": "招待",
+        "Selected Trip Access": "選択中の旅行への招待",
+        "Select a trip to generate a fresh invite.": "旅行を選択して新しい招待コードを発行します。",
+        "Generate": "発行",
+        "No invite generated yet.": "招待コードはまだ発行されていません。",
+        "Your Trips": "あなたの旅行",
+        "Switch Context": "旅行を切り替え",
+        "Refresh": "更新",
+        "Refresh trip": "旅行を更新",
+        "Please wait...": "お待ちください…",
+        "Request timed out. Please try again.": "リクエストがタイムアウトしました。もう一度お試しください。",
+        "Switching trip...": "旅行を切り替えています…",
+        "Switching to {trip}...": "「{trip}」に切り替えています…",
+        "Unable to switch trip. Your previous trip is still selected.": "旅行を切り替えられませんでした。以前の旅行を選択したままにしています。",
+        "Refreshing trips...": "旅行を更新しています…",
+        "Trips refreshed.": "旅行を更新しました。",
+        "Unable to refresh trips.": "旅行を更新できませんでした。",
+        "Refreshing trip...": "旅行データを更新しています…",
+        "Trip refreshed.": "旅行データを更新しました。",
+        "Unable to refresh trip.": "旅行データを更新できませんでした。",
+        "Dashboard": "ダッシュボード",
+        "No Trip Selected": "旅行が選択されていません",
+        "Create or join a trip to start using the new workspace.": "旅行を作成または参加して、ワークスペースを使い始めましょう。",
+        "The Stitch design is now wired into the real API. Open the menu to create a trip, join one with an invite code, or switch between existing trips.": "メニューから旅行の作成、招待コードでの参加、既存の旅行の切り替えができます。",
+        "Open Trip Control": "旅行管理を開く",
+        "View Analytics Layout": "分析画面を見る",
+        "Ongoing": "進行中",
+        "Archived": "アーカイブ済み",
+        "Base: --": "基準通貨：--",
+        "Select a Trip": "旅行を選択",
+        "Create or join a trip to populate this dashboard.": "旅行を作成または参加すると、ここにデータが表示されます。",
+        "Group Total Spend": "グループ合計支出",
+        "My Total Share": "自分の負担額",
+        "0% of total group spend": "グループ合計支出の 0%",
+        "Daily Average": "1日平均",
+        "Waiting for spend data": "支出データを待っています",
+        "Balance Status": "精算状況",
+        "Settled Up": "精算済み",
+        "You are all clear with the group": "グループとの未精算はありません",
+        "Members": "メンバー",
+        "Trip Group": "旅行グループ",
+        "Manage Trips": "旅行を管理",
+        "Expenses": "支出",
+        "Trip Details": "旅行明細",
+        "Add Expense": "支出を追加",
+        "Capture a new transaction for your current trip.": "現在の旅行に新しい取引を追加します。",
+        "Amount": "金額",
+        "Currency": "通貨",
+        "Custom code": "コードを入力",
+        "Title": "タイトル",
+        "Dinner at Sapporo Kani-Honke": "札幌かに本家で夕食",
+        "A short title shown in the trip expense list.": "旅行の支出一覧に表示する短いタイトルです。",
+        "Base Conversion": "基準通貨への換算",
+        "Select a trip to calculate conversion": "旅行を選択して換算します",
+        "Auto": "自動",
+        "Manual": "手動",
+        "Manual FX Rate to Base": "基準通貨への手動レート",
+        "Example: 32.45": "例：32.45",
+        "Built-in rates are used automatically when the currency pair is known.": "対応する通貨ペアでは内蔵レートを自動的に使用します。",
+        "Paid By": "支払者",
+        "Expense Time": "支出日時",
+        "Category": "カテゴリ",
+        "Split Expense": "支出を分割",
+        "Equal": "均等",
+        "Custom": "カスタム",
+        "Add a note or description...": "メモや説明を追加…",
+        "Analytics Summary": "支出分析",
+        "Select a trip to inspect group spending.": "旅行を選択してグループ支出を確認します。",
+        "Export Report": "レポートを書き出す",
+        "Spending by Category": "カテゴリ別支出",
+        "Total Spent": "合計支出",
+        "High Impact": "主な支出",
+        "Spending by Member": "メンバー別支出",
+        "Who paid upfront when the expense happened.": "各支出を誰が立て替えたかを表示します。",
+        "Contribution": "支払割合",
+        "Settle Up": "精算",
+        "View All Debts": "すべての未精算を見る",
+        "Final Spending by Member": "メンバー別の最終支出",
+        "Actual spend per member after the split is applied.": "分割後の各メンバーの実際の負担額です。",
+        "After Split": "分割後",
+        "Add": "追加",
+        "Analytics": "分析",
+        "Expense": "支出",
+        "Edit Detail": "明細を編集",
+        "Split Mode": "分割方法",
+        "Participants": "参加者",
+        "Custom Split JSON": "カスタム分割 JSON",
+        "Amounts must match the expense total and use member UUID keys.": "金額の合計を支出総額に合わせ、メンバー UUID をキーにしてください。",
+        "Note": "メモ",
+        "Save Changes": "変更を保存",
+        "Other": "その他",
+        "Unknown": "不明",
+        "Food": "食事",
+        "Transport": "交通",
+        "Lodging": "宿泊",
+        "Activities": "アクティビティ",
+        "Shopping": "買い物",
+        "Others": "その他",
+        "Travel dates not set": "旅行日程が未設定です",
+        "Starts {date}": "開始：{date}",
+        "Ends {date}": "終了：{date}",
+        "Today": "今日",
+        "Yesterday": "昨日",
+        "Account created.": "アカウントを作成しました。",
+        "Welcome back.": "おかえりなさい。",
+        "Authentication failed.": "認証に失敗しました。",
+        "No trips yet. Create one above or join with an invite code.": "旅行はまだありません。上で作成するか、招待コードで参加してください。",
+        "Trip created.": "旅行を作成しました。",
+        "Unable to create trip.": "旅行を作成できませんでした。",
+        "Trip joined.": "旅行に参加しました。",
+        "Unable to join trip.": "旅行に参加できませんでした。",
+        "Select a trip first.": "先に旅行を選択してください。",
+        "Code: {code}": "招待コード：{code}",
+        "Invite link": "招待リンク",
+        "Copy link": "リンクをコピー",
+        "Copy invite link": "招待リンクをコピー",
+        "Share this link. Recipients can log in or create an account before joining.": "このリンクを共有してください。受信者はログインまたはアカウント作成後に参加できます。",
+        "Link copied.": "リンクをコピーしました。",
+        "Unable to copy the link. Select it and copy manually.": "自動コピーできませんでした。リンクを選択して手動でコピーしてください。",
+        "Invitation accepted. You joined {trip}.": "招待を承認し、「{trip}」に参加しました。",
+        "You are already a member of {trip}.": "すでに「{trip}」のメンバーです。",
+        "Unable to accept invitation.": "招待を承認できませんでした。",
+        "Expires: {date}": "有効期限：{date}",
+        "Never": "無期限",
+        "Invite generated.": "招待コードを発行しました。",
+        "Unable to create invite.": "招待コードを発行できませんでした。",
+        "Selected {trip}.": "「{trip}」を選択しました。",
+        "Base: {currency}": "基準通貨：{currency}",
+        "{percent}% of total group spend": "グループ合計支出の {percent}%",
+        "Capture a new transaction for {trip}.": "「{trip}」に新しい取引を追加します。",
+        "First spend day recorded": "最初の支出日を記録しました",
+        "New activity vs. previous day": "前日より新しい支出があります",
+        "{percent}% more than previous day": "前日より {percent}% 増加",
+        "{percent}% less than previous day": "前日より {percent}% 減少",
+        "You Are Owed": "受取予定",
+        "{amount} should flow back to you": "{amount} を受け取る予定です",
+        "You Owe": "支払予定",
+        "{amount} is still outstanding": "{amount} が未払いです",
+        "Members will appear here after selecting a trip.": "旅行を選択するとメンバーがここに表示されます。",
+        "You": "あなた",
+        "Owner": "オーナー",
+        "Member": "メンバー",
+        "No expenses yet. Add the first transaction from the Add screen.": "支出はまだありません。追加画面から最初の取引を登録してください。",
+        "Untitled expense": "無題の支出",
+        "{category} · Paid by {name} · {count} people": "{category} · {name} が支払い · {count} 人で分割",
+        "Your Share: {amount}": "あなたの負担：{amount}",
+        "Not your share": "あなたの負担対象外",
+        "Trip members will appear here after selecting a trip.": "旅行を選択すると旅行メンバーがここに表示されます。",
+        "Typed amounts exceed the expense total. Reduce the custom values.": "入力金額が支出総額を超えています。カスタム金額を減らしてください。",
+        "Base Conversion ({currency})": "基準通貨への換算（{currency}）",
+        "Choose a source currency": "支出通貨を選択",
+        "Enter the currency you spent in.": "実際に支払った通貨を入力してください。",
+        "Manual FX rate required": "手動レートが必要です",
+        "No built-in rate for {source} to {target}. Switch to manual and enter one.": "{source} から {target} への内蔵レートがありません。手動に切り替えて入力してください。",
+        "Manual rate in use: 1 {source} = {amount}": "手動レートを使用：1 {source} = {amount}",
+        "Auto rate loaded: 1 {source} = {amount}": "自動レートを読込済み：1 {source} = {amount}",
+        "Enter a valid amount.": "有効な金額を入力してください。",
+        "Choose the expense currency.": "支出通貨を選択してください。",
+        "Select at least one member for the split.": "分割するメンバーを1人以上選択してください。",
+        "Enter a valid manual FX rate.": "有効な手動レートを入力してください。",
+        "No built-in rate for {source} to {target}. Switch to manual.": "{source} から {target} への内蔵レートがありません。手動に切り替えてください。",
+        "Expense created.": "支出を作成しました。",
+        "Unable to create expense.": "支出を作成できませんでした。",
+        "Only the trip owner can generate invites.": "招待コードを発行できるのは旅行のオーナーだけです。",
+        "Select a trip to load analytics.": "旅行を選択して分析を読み込みます。",
+        "No category data yet.": "カテゴリデータはまだありません。",
+        "Settlement suggestions appear here after expenses are added.": "支出を追加すると精算候補がここに表示されます。",
+        "No member contribution data yet.": "メンバーの支払データはまだありません。",
+        "No final spend data yet.": "最終支出データはまだありません。",
+        "No member data yet.": "メンバーデータはまだありません。",
+        "Everyone is effectively settled. Add more expenses to generate a debt plan.": "現在は全員精算済みです。支出を追加すると精算プランが作成されます。",
+        "{from} owes {to}": "{from} → {to}",
+        "{from} should settle with {to}.": "{from} は {to} と精算してください。",
+        "Settlement plan is shown inline below.": "精算プランは下に表示されています。",
+        "Expense updated.": "支出を更新しました。",
+        "Unable to update expense.": "支出を更新できませんでした。",
+        "Logged out.": "ログアウトしました。",
+        "Session expired. Please log in again.": "セッションの有効期限が切れました。再度ログインしてください。",
+        "Email already registered": "このメールアドレスは登録済みです",
+        "Invalid credentials": "メールアドレスまたはパスワードが正しくありません",
+        "Not a trip member": "この旅行のメンバーではありません",
+        "Owner role required": "この操作は旅行のオーナーのみ実行できます",
+        "Trip not found": "旅行が見つかりません",
+        "Invite code not found": "招待コードが見つかりません",
+        "Invite inactive": "招待コードは無効です",
+        "Invite expired": "招待コードの有効期限が切れています",
+        "Cannot remove owner": "旅行のオーナーは削除できません",
+        "Cannot edit others' expenses": "他の人の支出は編集できません",
+        "Expense not found": "支出が見つかりません",
+        "Cannot delete others' expenses": "他の人の支出は削除できません",
+        "split_mode must be equal or custom": "分割方法は均等またはカスタムを選択してください",
+        "split_with_user_ids cannot be empty": "分割するメンバーを選択してください",
+        "split_with_user_ids must be trip members": "分割対象は旅行メンバーに限られます",
+        "custom_split_amounts is required": "カスタム分割には各メンバーの金額が必要です",
+        "custom split user must be a trip member": "カスタム分割の対象は旅行メンバーに限られます",
+        "custom split amount must be >= 0": "カスタム分割金額は 0 以上にしてください",
+        "custom split users must match split_with_user_ids": "カスタム分割のメンバーを選択したメンバーと一致させてください",
+        "custom split must sum to amount": "カスタム分割の合計を支出金額と一致させてください",
+        "fx_rate_to_target is required": "対象通貨への為替レートが必要です",
+        "fx_rate_to_base is required": "基準通貨への為替レートが必要です"
+      }
+    };
+    const translatedTextNodes = new WeakMap();
+
+    function t(key, values = {}) {
+      const template = TRANSLATIONS[state?.language]?.[key] || key;
+      return template.replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? `{${name}}`));
+    }
+
+    function hasTranslation(key) {
+      return Boolean(TRANSLATIONS["zh-TW"][key] || TRANSLATIONS.ja[key]);
+    }
+
+    function applyStaticTranslations(root = document.body) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          if (node.parentElement?.closest("script, style")) return NodeFilter.FILTER_REJECT;
+          return node.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        },
+      });
+      let node = walker.nextNode();
+      while (node) {
+        let metadata = translatedTextNodes.get(node);
+        if (!metadata) {
+          const key = node.nodeValue.trim();
+          if (hasTranslation(key)) {
+            metadata = {
+              key,
+              leading: node.nodeValue.match(/^\s*/)?.[0] || "",
+              trailing: node.nodeValue.match(/\s*$/)?.[0] || "",
+            };
+            translatedTextNodes.set(node, metadata);
+          }
+        }
+        if (metadata) node.nodeValue = `${metadata.leading}${t(metadata.key)}${metadata.trailing}`;
+        node = walker.nextNode();
+      }
+
+      root.querySelectorAll("[placeholder], [alt], [aria-label], [title]").forEach((element) => {
+        ["placeholder", "alt", "aria-label", "title"].forEach((attribute) => {
+          if (!element.hasAttribute(attribute)) return;
+          const dataKey = `i18n${attribute.replace(/(^|-)(\w)/g, (_, __, char) => char.toUpperCase())}`;
+          const key = element.dataset[dataKey] || element.getAttribute(attribute);
+          if (!hasTranslation(key)) return;
+          element.dataset[dataKey] = key;
+          element.setAttribute(attribute, t(key));
+        });
+      });
+    }
     const CATEGORY_META = {
       food: { label: "Food", icon: "restaurant", theme: "sky", listBg: "bg-orange-100 text-orange-600", chart: "#34d399" },
       transport: { label: "Transport", icon: "directions_car", theme: "sky", listBg: "bg-sky-100 text-sky-600", chart: "#0ea5e9" },
@@ -792,6 +1406,7 @@
 
     const state = {
       token: localStorage.getItem("tripwallet_token") || "",
+      language: localStorage.getItem("tripwallet_language") || "en",
       authMode: "login",
       activeScreen: "trip",
       addSplitMode: "equal",
@@ -803,13 +1418,49 @@
       members: [],
       expenses: [],
       summary: null,
+      latestInvite: null,
+      pendingInviteCode: new URLSearchParams(window.location.search).get("invite")?.trim() || "",
+      pendingInvitePreview: null,
+      pendingInviteError: "",
       selectedExpenseId: null,
       customSplitManualByUserId: {},
       customSplitRenderedUserIds: [],
+      tripsRequestId: 0,
+      tripContextRequestId: 0,
+      tripSwitching: false,
+      tripSwitchRollback: null,
+      expenseModalCloseTimer: null,
+      authInFlight: false,
     };
 
     function el(id) {
       return document.getElementById(id);
+    }
+
+    function locale() {
+      return LANGUAGE_LOCALES[state.language] || LANGUAGE_LOCALES.en;
+    }
+
+    function setLanguage(language) {
+      const currencySelections = [
+        ["trip-base", "trip-base-custom", el("trip-base")?.value || "USD"],
+        ["expense-currency", "expense-currency-custom", el("expense-currency")?.value || "USD"],
+      ];
+      state.language = LANGUAGE_LOCALES[language] ? language : "en";
+      localStorage.setItem("tripwallet_language", state.language);
+      document.documentElement.lang = state.language;
+      document.querySelectorAll(".language-select").forEach((select) => {
+        select.value = state.language;
+      });
+      currencySelections.forEach(([selectId, inputId, selected]) => {
+        renderCurrencyOptions(selectId, selected);
+        toggleCurrencyCustomInput(selectId, inputId);
+      });
+      setAuthMode(state.authMode);
+      renderPendingInviteBanner();
+      renderTripList();
+      renderAll();
+      applyStaticTranslations();
     }
 
     function escapeHtml(value) {
@@ -824,7 +1475,7 @@
     function formatNumber(value, maximumFractionDigits = 2) {
       const number = Number(value || 0);
       const isIntegerLike = Math.abs(number - Math.round(number)) < 0.000001;
-      return new Intl.NumberFormat(undefined, {
+      return new Intl.NumberFormat(locale(), {
         minimumFractionDigits: isIntegerLike ? 0 : 2,
         maximumFractionDigits,
       }).format(number);
@@ -859,12 +1510,13 @@
     }
 
     function userNameById(userId) {
-      return memberById(userId)?.display_name || (state.me && state.me.id === userId ? state.me.display_name : "Unknown");
+      return memberById(userId)?.display_name || (state.me && state.me.id === userId ? state.me.display_name : t("Unknown"));
     }
 
     function categoryMeta(rawCategory) {
       const key = String(rawCategory || "others").trim().toLowerCase();
-      return CATEGORY_META[key] || { label: rawCategory || "Others", icon: "payments", listBg: "bg-slate-100 text-slate-600", chart: "#64748b" };
+      const meta = CATEGORY_META[key] || { label: rawCategory || "Others", icon: "payments", listBg: "bg-slate-100 text-slate-600", chart: "#64748b" };
+      return { ...meta, label: t(meta.label) };
     }
 
     function latestFx(source, target) {
@@ -879,7 +1531,7 @@
       const select = el(selectId);
       select.innerHTML = `
         ${KNOWN_CURRENCIES.map((code) => `<option value="${code}">${code}</option>`).join("")}
-        <option value="OTHER">Other</option>
+        <option value="OTHER">${escapeHtml(t("Other"))}</option>
       `;
       if ([...KNOWN_CURRENCIES, "OTHER"].includes(selected)) {
         select.value = selected;
@@ -911,12 +1563,14 @@
     }
 
     function formatTripDates(trip) {
-      if (!trip || (!trip.start_date && !trip.end_date)) return "Travel dates not set";
-      const formatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
+      if (!trip || (!trip.start_date && !trip.end_date)) return t("Travel dates not set");
+      const formatter = new Intl.DateTimeFormat(locale(), { month: "short", day: "numeric", year: "numeric" });
       if (trip.start_date && trip.end_date) {
         return `${formatter.format(new Date(trip.start_date))} - ${formatter.format(new Date(trip.end_date))}`;
       }
-      return trip.start_date ? `Starts ${formatter.format(new Date(trip.start_date))}` : `Ends ${formatter.format(new Date(trip.end_date))}`;
+      return trip.start_date
+        ? t("Starts {date}", { date: formatter.format(new Date(trip.start_date)) })
+        : t("Ends {date}", { date: formatter.format(new Date(trip.end_date)) });
     }
 
     function formatSectionDate(dateKey) {
@@ -924,9 +1578,9 @@
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const target = new Date(`${dateKey}T00:00:00`);
       const diff = Math.round((today - target) / 86400000);
-      if (diff === 0) return "Today";
-      if (diff === 1) return "Yesterday";
-      return new Intl.DateTimeFormat(undefined, { month: "long", day: "numeric", year: "numeric" }).format(target);
+      if (diff === 0) return t("Today");
+      if (diff === 1) return t("Yesterday");
+      return new Intl.DateTimeFormat(locale(), { month: "long", day: "numeric", year: "numeric" }).format(target);
     }
 
     function tripDurationDays(trip) {
@@ -954,20 +1608,152 @@
       state.authMode = mode;
       const isSignup = mode === "signup";
       el("signup-name-wrap").classList.toggle("hidden", !isSignup);
-      el("auth-submit-label").textContent = isSignup ? "Create Account" : "Login";
-      el("auth-switch-copy").textContent = isSignup ? "Already have an account?" : "New to TripWallet?";
-      el("auth-switch-action").textContent = isSignup ? "Login" : "Sign Up";
+      el("remember-password-wrap").classList.toggle("hidden", isSignup);
+      el("auth-password").setAttribute("autocomplete", isSignup ? "new-password" : "current-password");
+      el("auth-submit-label").textContent = t(isSignup ? "Create Account" : "Login");
+      el("auth-switch-copy").textContent = t(isSignup ? "Already have an account?" : "New to TripWallet?");
+      el("auth-switch-action").textContent = t(isSignup ? "Login" : "Sign Up");
       el("auth-login-tab").className = `rounded-xl px-4 py-2 transition-colors ${isSignup ? "text-slate-500" : "bg-white text-sky-700 shadow-sm"}`;
       el("auth-signup-tab").className = `rounded-xl px-4 py-2 transition-colors ${isSignup ? "bg-white text-sky-700 shadow-sm" : "text-slate-500"}`;
       el("auth-feedback").classList.add("hidden");
     }
 
+    function switchAuthMode(mode) {
+      if (mode === state.authMode) {
+        setAuthMode(mode);
+        return;
+      }
+      setAuthMode(mode);
+      if (mode === "signup") {
+        el("auth-password").value = "";
+      } else {
+        restoreRememberedCredentials();
+      }
+    }
+
     function toggleAuthMode() {
-      setAuthMode(state.authMode === "login" ? "signup" : "login");
+      switchAuthMode(state.authMode === "login" ? "signup" : "login");
     }
 
     function useDemoPassword() {
       el("auth-password").value = "123456";
+    }
+
+    function readRememberedCredentials() {
+      try {
+        const credentials = JSON.parse(localStorage.getItem(REMEMBERED_CREDENTIALS_KEY) || "null");
+        if (typeof credentials?.email !== "string" || typeof credentials?.password !== "string") return null;
+        return credentials;
+      } catch {
+        localStorage.removeItem(REMEMBERED_CREDENTIALS_KEY);
+        return null;
+      }
+    }
+
+    function restoreRememberedCredentials() {
+      const credentials = readRememberedCredentials();
+      el("remember-password").checked = Boolean(credentials);
+      if (!credentials) {
+        el("auth-password").value = "";
+        return;
+      }
+      el("auth-email").value = credentials.email;
+      el("auth-password").value = credentials.password;
+    }
+
+    function handleRememberPasswordChange() {
+      if (!el("remember-password").checked) {
+        localStorage.removeItem(REMEMBERED_CREDENTIALS_KEY);
+      }
+    }
+
+    function persistRememberedCredentials(email, password) {
+      if (el("remember-password").checked) {
+        localStorage.setItem(REMEMBERED_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+        return;
+      }
+      localStorage.removeItem(REMEMBERED_CREDENTIALS_KEY);
+      el("auth-password").value = "";
+    }
+
+    function buildInviteLink(inviteCode) {
+      const url = new URL(window.location.href);
+      url.search = "";
+      url.hash = "";
+      url.searchParams.set("invite", inviteCode);
+      return url.toString();
+    }
+
+    function renderPendingInviteBanner() {
+      const banner = el("pending-invite-banner");
+      const shouldShow = Boolean(state.pendingInviteCode) && !state.token;
+      banner.classList.toggle("hidden", !shouldShow);
+      if (!shouldShow) return;
+
+      el("pending-invite-title").textContent = t("Trip invitation");
+      banner.className = `mb-6 rounded-2xl border p-4 text-left ${
+        state.pendingInviteError
+          ? "border-rose-200 bg-rose-50"
+          : "border-sky-200 bg-sky-50"
+      }`;
+      el("pending-invite-title").className = `font-extrabold ${state.pendingInviteError ? "text-rose-900" : "text-sky-900"}`;
+      el("pending-invite-message").className = `mt-1 text-sm font-medium leading-6 ${state.pendingInviteError ? "text-rose-700" : "text-sky-700"}`;
+
+      if (state.pendingInviteError) {
+        el("pending-invite-message").textContent = t("This invitation link is invalid or expired.");
+      } else if (state.pendingInvitePreview) {
+        el("pending-invite-message").textContent = t(
+          "You've been invited to {trip} ({currency}). Log in or create an account; you'll join automatically afterward.",
+          {
+            trip: state.pendingInvitePreview.trip_name,
+            currency: state.pendingInvitePreview.base_currency,
+          },
+        );
+      } else {
+        el("pending-invite-message").textContent = t("Checking invitation...");
+      }
+    }
+
+    async function loadPendingInvitePreview() {
+      if (!state.pendingInviteCode) return;
+      state.pendingInvitePreview = null;
+      state.pendingInviteError = "";
+      renderPendingInviteBanner();
+      try {
+        state.pendingInvitePreview = await api(`/invites/${encodeURIComponent(state.pendingInviteCode)}`);
+      } catch (error) {
+        state.pendingInviteError = error.message || "Invite code not found";
+      }
+      renderPendingInviteBanner();
+    }
+
+    function clearPendingInvite() {
+      state.pendingInviteCode = "";
+      state.pendingInvitePreview = null;
+      state.pendingInviteError = "";
+      const url = new URL(window.location.href);
+      url.searchParams.delete("invite");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      renderPendingInviteBanner();
+    }
+
+    async function copyInviteLink() {
+      if (!state.latestInvite) return;
+      const inviteLink = buildInviteLink(state.latestInvite.invite_code);
+      try {
+        await navigator.clipboard.writeText(inviteLink);
+        showToast(t("Link copied."), "success");
+      } catch {
+        const input = el("invite-link-value");
+        input.focus();
+        input.select();
+        input.setSelectionRange(0, input.value.length);
+        if (document.execCommand("copy")) {
+          showToast(t("Link copied."), "success");
+        } else {
+          showToast(t("Unable to copy the link. Select it and copy manually."), "error");
+        }
+      }
     }
 
     function setToken(token) {
@@ -976,18 +1762,25 @@
       el("login-screen").classList.toggle("hidden", Boolean(state.token));
       el("app-shell").classList.toggle("hidden", !state.token);
       if (!state.token) {
+        state.tripsRequestId += 1;
+        state.tripContextRequestId += 1;
+        state.tripSwitching = false;
+        state.tripSwitchRollback = null;
+        state.activeScreen = "trip";
         state.me = null;
         state.trips = [];
         state.selectedTrip = null;
         state.members = [];
         state.expenses = [];
         state.summary = null;
+        state.latestInvite = null;
+        setTripLoading(false);
       }
     }
 
     function showAuthFeedback(message, kind = "success") {
       const box = el("auth-feedback");
-      box.textContent = message;
+      box.textContent = t(message);
       box.className = `mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${
         kind === "error"
           ? "border-rose-200 bg-rose-50 text-rose-700"
@@ -1003,32 +1796,90 @@
         info: "border-sky-200 bg-sky-50 text-sky-700",
       };
       toast.className = `pointer-events-auto rounded-2xl border px-4 py-3 text-sm font-semibold shadow-lg ${palette[kind] || palette.info}`;
-      toast.textContent = message;
+      toast.textContent = t(message);
       el("toast-root").appendChild(toast);
       setTimeout(() => toast.remove(), 3200);
+    }
+
+    function beginButtonBusy(buttonId) {
+      const button = el(buttonId);
+      if (!button || button.dataset.busy === "true") return false;
+      button.dataset.busy = "true";
+      button.dataset.idleHtml = button.innerHTML;
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      button.classList.add("cursor-wait", "opacity-70");
+      button.innerHTML = `
+        <span class="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+        <span>${escapeHtml(t("Please wait..."))}</span>
+      `;
+      return true;
+    }
+
+    function endButtonBusy(buttonId) {
+      const button = el(buttonId);
+      if (!button || button.dataset.busy !== "true") return;
+      const idleHtml = button.dataset.idleHtml;
+      delete button.dataset.busy;
+      delete button.dataset.idleHtml;
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+      button.classList.remove("cursor-wait", "opacity-70");
+      if (idleHtml) button.innerHTML = idleHtml;
+      applyStaticTranslations(button);
+    }
+
+    function setTripLoading(isLoading, message = "Switching trip...") {
+      const banner = el("trip-loading-banner");
+      banner.classList.toggle("hidden", !isLoading);
+      banner.classList.toggle("flex", isLoading);
+      el("trip-loading-message").textContent = t(message);
+    }
+
+    function syncBodyScrollLock() {
+      const drawerOpen = !el("drawer-overlay").classList.contains("hidden");
+      const modalOpen = !el("expense-modal").classList.contains("hidden");
+      document.body.classList.toggle("overflow-hidden", drawerOpen || modalOpen);
     }
 
     async function api(path, method = "GET", body) {
       const headers = { "Content-Type": "application/json" };
       if (state.token) headers.Authorization = `Bearer ${state.token}`;
-      const response = await fetch(path, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      const text = await response.text();
-      let data = {};
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
       try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        data = { raw: text };
+        const response = await fetch(path, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+          signal: controller.signal,
+        });
+        const text = await response.text();
+        let data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = { raw: text };
+        }
+        if (!response.ok) {
+          const apiError = new Error(data.detail || data.raw || `${response.status}`);
+          apiError.status = response.status;
+          throw apiError;
+        }
+        return data;
+      } catch (error) {
+        if (error.name === "AbortError") throw new Error(t("Request timed out. Please try again."));
+        throw error;
+      } finally {
+        clearTimeout(timeoutId);
       }
-      if (!response.ok) throw new Error(data.detail || data.raw || `${response.status}`);
-      return data;
     }
 
     async function handleAuthSubmit(event) {
       event.preventDefault();
+      if (state.authInFlight) return;
+      state.authInFlight = true;
+      beginButtonBusy("auth-submit");
       try {
         const email = el("auth-email").value.trim();
         const password = el("auth-password").value;
@@ -1041,41 +1892,58 @@
           });
           setToken(data.access_token);
           await initializeApp();
-          showToast("Account created.", "success");
+          showToast(t("Account created."), "success");
         } else {
           const data = await api("/auth/login", "POST", { email, password });
+          persistRememberedCredentials(email, password);
           setToken(data.access_token);
           await initializeApp();
-          showToast("Welcome back.", "success");
+          showToast(t("Welcome back."), "success");
         }
       } catch (error) {
-        showAuthFeedback(error.message || "Authentication failed.", "error");
+        showAuthFeedback(error.message || t("Authentication failed."), "error");
+      } finally {
+        state.authInFlight = false;
+        endButtonBusy("auth-submit");
       }
     }
 
     async function loginWithPreset(email) {
+      if (state.authInFlight) return;
+      state.authInFlight = true;
+      beginButtonBusy("auth-submit");
       try {
         setAuthMode("login");
         el("auth-email").value = email;
         el("auth-password").value = "123456";
         const data = await api("/auth/login", "POST", { email, password: "123456" });
+        persistRememberedCredentials(email, "123456");
         setToken(data.access_token);
         await initializeApp();
-        showToast("Welcome back.", "success");
+        showToast(t("Welcome back."), "success");
       } catch (error) {
-        showAuthFeedback(error.message || "Authentication failed.", "error");
+        showAuthFeedback(error.message || t("Authentication failed."), "error");
+      } finally {
+        state.authInFlight = false;
+        endButtonBusy("auth-submit");
       }
     }
 
     function toggleDrawer(shouldOpen) {
       el("drawer-overlay").classList.toggle("hidden", !shouldOpen);
       el("trip-drawer").classList.toggle("-translate-x-full", !shouldOpen);
+      syncBodyScrollLock();
     }
 
     function setScreen(screen) {
-      state.activeScreen = screen;
+      if (!state.selectedTrip && screen !== "trip") {
+        state.activeScreen = "trip";
+        showToast(t("Select a trip first."), "error");
+      } else {
+        state.activeScreen = screen;
+      }
       document.querySelectorAll(".nav-item").forEach((button) => {
-        const active = button.dataset.screen === screen;
+        const active = button.dataset.screen === state.activeScreen;
         button.className = `nav-item flex flex-col items-center justify-center px-4 py-1.5 transition-colors ${
           active ? "rounded-xl bg-sky-100 text-sky-700" : "text-slate-500 hover:text-sky-500"
         }`;
@@ -1092,7 +1960,18 @@
     }
 
     function renderHeader() {
-      el("header-title").textContent = state.selectedTrip ? state.selectedTrip.name : "Dashboard";
+      const tripSelect = el("header-trip-select");
+      tripSelect.innerHTML = `
+        <option value="">${escapeHtml(t("Dashboard"))}</option>
+        ${state.trips.map((trip) => `
+          <option value="${escapeHtml(trip.id)}">${escapeHtml(trip.name)}</option>
+        `).join("")}
+      `;
+      tripSelect.value = state.selectedTrip?.id || "";
+      tripSelect.disabled = state.tripSwitching || !state.trips.length;
+      tripSelect.title = state.selectedTrip
+        ? t("Selected {trip}.", { trip: state.selectedTrip.name })
+        : t("Dashboard");
       if (state.me) {
         el("header-user-avatar").textContent = initials(state.me.display_name);
         el("header-user-name").textContent = state.me.display_name;
@@ -1106,7 +1985,7 @@
       if (!state.trips.length) {
         el("trip-list").innerHTML = `
           <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-500">
-            No trips yet. Create one above or join with an invite code.
+            ${escapeHtml(t("No trips yet. Create one above or join with an invite code."))}
           </div>
         `;
         return;
@@ -1114,14 +1993,16 @@
       el("trip-list").innerHTML = state.trips
         .map((trip) => {
           const active = state.selectedTrip && state.selectedTrip.id === trip.id;
+          const disabled = state.tripSwitching;
           return `
             <button
               type="button"
-              class="w-full rounded-[1.4rem] border px-4 py-4 text-left transition-all ${
+              class="w-full rounded-[1.4rem] border px-4 py-4 text-left transition-all ${disabled ? "cursor-wait opacity-65" : ""} ${
                 active
                   ? "border-sky-200 bg-sky-50 shadow-sm"
                   : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
               }"
+              ${disabled ? "disabled aria-busy=\"true\"" : ""}
               onclick="selectTrip('${trip.id}')"
             >
               <div class="flex items-start justify-between gap-3">
@@ -1140,6 +2021,7 @@
     }
 
     async function createTrip() {
+      if (!beginButtonBusy("trip-create-button")) return;
       try {
         const payload = {
           name: el("trip-name").value.trim(),
@@ -1148,97 +2030,248 @@
         if (el("trip-start").value) payload.start_date = el("trip-start").value;
         if (el("trip-end").value) payload.end_date = el("trip-end").value;
         const trip = await api("/trips", "POST", payload);
-        showToast("Trip created.", "success");
+        showToast(t("Trip created."), "success");
         el("trip-name").value = "";
         el("trip-start").value = "";
         el("trip-end").value = "";
         renderCurrencyOptions("trip-base", "USD");
         toggleCurrencyCustomInput("trip-base", "trip-base-custom");
-        await loadTrips(false);
-        await selectTrip(trip.id);
-        setScreen("trip");
+        try {
+          await loadTrips(false);
+          await selectTrip(trip.id);
+          setScreen("trip");
+        } catch (error) {
+          showToast(error.message || t("Unable to refresh trips."), "error");
+        }
       } catch (error) {
-        showToast(error.message || "Unable to create trip.", "error");
+        showToast(error.message || t("Unable to create trip."), "error");
+      } finally {
+        endButtonBusy("trip-create-button");
       }
     }
 
     async function joinTrip() {
+      if (!beginButtonBusy("join-trip-button")) return;
       try {
         const code = el("join-code").value.trim();
-        await api("/trips/join", "POST", { invite_code: code });
+        const result = await api("/trips/join", "POST", { invite_code: code });
         el("join-code").value = "";
-        showToast("Trip joined.", "success");
-        await loadTrips();
+        showToast(t("Trip joined."), "success");
+        try {
+          await loadTrips(false);
+          if (result.trip_id) await selectTrip(result.trip_id, true);
+        } catch (error) {
+          showToast(error.message || t("Unable to refresh trips."), "error");
+        }
       } catch (error) {
-        showToast(error.message || "Unable to join trip.", "error");
+        showToast(error.message || t("Unable to join trip."), "error");
+      } finally {
+        endButtonBusy("join-trip-button");
+      }
+    }
+
+    async function acceptPendingInvite() {
+      const inviteCode = state.pendingInviteCode;
+      if (!inviteCode) {
+        await loadTrips();
+        return;
+      }
+
+      try {
+        const result = await api("/trips/join", "POST", { invite_code: inviteCode });
+        await loadTrips(false);
+        if (result.trip_id) await selectTrip(result.trip_id, true);
+        const tripName = state.selectedTrip?.name || state.pendingInvitePreview?.trip_name || "TripWallet";
+        clearPendingInvite();
+        setScreen("trip");
+        showToast(t(
+          result.status === "already_joined"
+            ? "You are already a member of {trip}."
+            : "Invitation accepted. You joined {trip}.",
+          { trip: tripName },
+        ), "success");
+      } catch (error) {
+        try {
+          await loadTrips();
+        } catch {
+          // Preserve the authenticated session even if the recovery refresh also fails.
+        }
+        showToast(error.message || t("Unable to accept invitation."), "error");
       }
     }
 
     async function createInvite() {
+      if (!beginButtonBusy("invite-button")) return;
       try {
-        if (!state.selectedTrip) throw new Error("Select a trip first.");
+        if (!state.selectedTrip) throw new Error(t("Select a trip first."));
         const result = await api(`/trips/${state.selectedTrip.id}/invite`, "POST", {
           expires_in_hours: Number(el("invite-hours").value || 24),
         });
-        el("invite-result").innerHTML = `
-          <div class="font-bold">Code: ${escapeHtml(result.invite_code)}</div>
-          <div class="mt-1 text-xs text-slate-300">Expires: ${escapeHtml(result.expires_at || "Never")}</div>
-        `;
-        showToast("Invite generated.", "success");
+        state.latestInvite = result;
+        updateInvitePanel();
+        showToast(t("Invite generated."), "success");
       } catch (error) {
-        showToast(error.message || "Unable to create invite.", "error");
+        showToast(error.message || t("Unable to create invite."), "error");
+      } finally {
+        endButtonBusy("invite-button");
       }
     }
 
     async function loadTrips(autoSelect = true) {
-      state.trips = await api("/trips");
+      const requestId = ++state.tripsRequestId;
+      const trips = await api("/trips");
+      if (requestId !== state.tripsRequestId) return false;
+      state.trips = trips;
       renderTripList();
       if (!state.trips.length) {
+        state.tripContextRequestId += 1;
+        state.tripSwitching = false;
+        state.tripSwitchRollback = null;
         state.selectedTrip = null;
         state.members = [];
         state.expenses = [];
         state.summary = null;
+        setTripLoading(false);
         renderAll();
-        return;
+        return true;
       }
 
       if (!autoSelect) {
         renderAll();
-        return;
+        return true;
       }
 
       const currentId = state.selectedTrip?.id;
       const nextId = state.trips.some((trip) => trip.id === currentId) ? currentId : state.trips[0].id;
       await selectTrip(nextId, true);
+      return true;
+    }
+
+    async function refreshTrips() {
+      if (!beginButtonBusy("trip-list-refresh-button")) return;
+      setTripLoading(true, "Refreshing trips...");
+      try {
+        await loadTrips();
+        showToast(t("Trips refreshed."), "success");
+      } catch (error) {
+        showToast(error.message || t("Unable to refresh trips."), "error");
+      } finally {
+        if (!state.tripSwitching) setTripLoading(false);
+        endButtonBusy("trip-list-refresh-button");
+      }
+    }
+
+    function snapshotTripContext() {
+      return {
+        selectedTrip: state.selectedTrip,
+        members: state.members,
+        expenses: state.expenses,
+        summary: state.summary,
+        latestInvite: state.latestInvite,
+      };
+    }
+
+    function applyTripContextSnapshot(snapshot) {
+      state.selectedTrip = snapshot.selectedTrip;
+      state.members = snapshot.members;
+      state.expenses = snapshot.expenses;
+      state.summary = snapshot.summary;
+      state.latestInvite = snapshot.latestInvite;
+      if (state.selectedTrip) syncExpenseCurrencyDefault();
     }
 
     async function selectTrip(id, quiet = false) {
       const nextTrip = state.trips.find((trip) => trip.id === id);
       if (!nextTrip) return;
-      state.selectedTrip = nextTrip;
-      syncExpenseCurrencyDefault();
-      await loadCurrentTripContext();
-      renderTripList();
-      renderAll();
-      toggleDrawer(false);
-      if (!quiet) showToast(`Selected ${nextTrip.name}.`, "info");
-    }
-
-    async function loadCurrentTripContext() {
-      if (!state.selectedTrip) {
-        renderAll();
+      if (!state.tripSwitching && state.selectedTrip?.id === nextTrip.id) {
+        toggleDrawer(false);
         return;
       }
-      const tripId = state.selectedTrip.id;
+
+      if (!state.tripSwitchRollback) state.tripSwitchRollback = snapshotTripContext();
+      const requestId = ++state.tripContextRequestId;
+      state.tripSwitching = true;
+      state.selectedTrip = nextTrip;
+      state.latestInvite = null;
+      state.members = [];
+      state.expenses = [];
+      state.summary = null;
+      syncExpenseCurrencyDefault();
+      toggleDrawer(false);
+      renderTripList();
+      renderAll();
+      setTripLoading(true, t("Switching to {trip}...", { trip: nextTrip.name }));
+
+      try {
+        const context = await fetchTripContext(nextTrip.id);
+        if (requestId !== state.tripContextRequestId) return;
+        state.members = context.members;
+        state.expenses = context.expenses;
+        state.summary = context.summary;
+        state.tripSwitchRollback = null;
+        if (!quiet) showToast(t("Selected {trip}.", { trip: nextTrip.name }), "info");
+      } catch (error) {
+        if (requestId !== state.tripContextRequestId) return;
+        applyTripContextSnapshot(state.tripSwitchRollback || snapshotTripContext());
+        state.tripSwitchRollback = null;
+        showToast(
+          error.message === t("Request timed out. Please try again.")
+            ? error.message
+            : t("Unable to switch trip. Your previous trip is still selected."),
+          "error",
+        );
+      } finally {
+        if (requestId === state.tripContextRequestId) {
+          state.tripSwitching = false;
+          setTripLoading(false);
+          renderTripList();
+          renderAll();
+        }
+      }
+    }
+
+    async function fetchTripContext(tripId) {
       const [members, expenses, summary] = await Promise.all([
         api(`/trips/${tripId}/members`),
         api(`/trips/${tripId}/expenses`),
         api(`/trips/${tripId}/analytics/summary`),
       ]);
-      state.members = members;
-      state.expenses = expenses;
-      state.summary = summary;
+      return { members, expenses, summary };
+    }
+
+    async function loadCurrentTripContext() {
+      if (!state.selectedTrip) return false;
+      const tripId = state.selectedTrip.id;
+      const requestId = ++state.tripContextRequestId;
+      const context = await fetchTripContext(tripId);
+      if (requestId !== state.tripContextRequestId || state.selectedTrip?.id !== tripId) return false;
+      state.members = context.members;
+      state.expenses = context.expenses;
+      state.summary = context.summary;
       renderAll();
+      return true;
+    }
+
+    async function refreshCurrentTripContext(buttonId) {
+      if (!state.selectedTrip) {
+        showToast(t("Select a trip first."), "error");
+        return;
+      }
+      if (state.tripSwitching) {
+        showToast(t("Please wait..."), "info");
+        return;
+      }
+      if (buttonId && !beginButtonBusy(buttonId)) return;
+      setTripLoading(true, "Refreshing trip...");
+      try {
+        await loadCurrentTripContext();
+        showToast(t("Trip refreshed."), "success");
+      } catch (error) {
+        showToast(error.message || t("Unable to refresh trip."), "error");
+      } finally {
+        setTripLoading(false);
+        if (buttonId) endButtonBusy(buttonId);
+      }
     }
 
     function renderAll() {
@@ -1253,14 +2286,15 @@
       renderAnalytics();
       updateFxPreview();
       updateInvitePanel();
+      applyStaticTranslations();
     }
 
     function renderTripHero() {
       const trip = state.selectedTrip;
       if (!trip) {
-        el("trip-hero-name").textContent = "Select a Trip";
-        el("trip-hero-dates").textContent = "Create or join a trip to populate this dashboard.";
-        el("trip-base-label").textContent = "Base: --";
+        el("trip-hero-name").textContent = t("Select a Trip");
+        el("trip-hero-dates").textContent = t("Create or join a trip to populate this dashboard.");
+        el("trip-base-label").textContent = t("Base: --");
         el("trip-total-spend").textContent = "--";
         return;
       }
@@ -1274,14 +2308,14 @@
       const { title, copy, icon, cardClass } = computeBalanceCard();
 
       el("hero-image").src = HERO_IMAGES[hashString(trip.id) % HERO_IMAGES.length];
-      el("trip-status-badge").textContent = trip.status === "archived" ? "Archived" : "Ongoing";
+      el("trip-status-badge").textContent = t(trip.status === "archived" ? "Archived" : "Ongoing");
       el("trip-hero-name").textContent = trip.name;
       el("trip-hero-dates").textContent = formatTripDates(trip);
-      el("trip-base-label").textContent = `Base: ${trip.base_currency}`;
+      el("trip-base-label").textContent = t("Base: {currency}", { currency: trip.base_currency });
       el("trip-total-spend").textContent = formatMoney(trip.base_currency, total);
       el("my-total-share").textContent = formatMoney(trip.base_currency, myShare);
       el("my-share-progress").style.width = `${sharePct.toFixed(1)}%`;
-      el("my-share-caption").textContent = `${sharePct.toFixed(1)}% of total group spend`;
+      el("my-share-caption").textContent = t("{percent}% of total group spend", { percent: sharePct.toFixed(1) });
       el("daily-average").textContent = formatMoney(trip.base_currency, dailyAverage);
       el("daily-trend").className = `mt-2 flex items-center gap-1 text-xs font-bold ${trendClass}`;
       el("daily-trend").innerHTML = `<span class="material-symbols-outlined text-sm">${trendIcon}</span>${escapeHtml(trendText)}`;
@@ -1290,22 +2324,23 @@
       el("balance-copy").textContent = copy;
       el("balance-icon").textContent = icon;
       el("selected-trip-caption").textContent = `${trip.name} (${trip.base_currency})`;
-      el("add-screen-caption").textContent = `Capture a new transaction for ${trip.name}.`;
+      el("add-screen-caption").textContent = t("Capture a new transaction for {trip}.", { trip: trip.name });
       el("analytics-caption").textContent = trip.name;
     }
 
     function computeDayTrend() {
       const byDay = state.summary?.total_spending_by_day || {};
       const days = Object.keys(byDay).sort();
-      if (!days.length) return { trendText: "Waiting for spend data", trendClass: "text-slate-400", trendIcon: "calendar_today" };
+      if (!days.length) return { trendText: t("Waiting for spend data"), trendClass: "text-slate-400", trendIcon: "calendar_today" };
       const lastDay = Number(byDay[days[days.length - 1]] || 0);
       const previousDay = days.length > 1 ? Number(byDay[days[days.length - 2]] || 0) : 0;
-      if (days.length === 1) return { trendText: "First spend day recorded", trendClass: "text-sky-600", trendIcon: "timeline" };
-      if (previousDay === 0) return { trendText: "New activity vs. previous day", trendClass: "text-sky-600", trendIcon: "trending_up" };
+      if (days.length === 1) return { trendText: t("First spend day recorded"), trendClass: "text-sky-600", trendIcon: "timeline" };
+      if (previousDay === 0) return { trendText: t("New activity vs. previous day"), trendClass: "text-sky-600", trendIcon: "trending_up" };
       const delta = ((lastDay - previousDay) / previousDay) * 100;
-      const lessOrMore = delta >= 0 ? "more" : "less";
       return {
-        trendText: `${Math.abs(delta).toFixed(0)}% ${lessOrMore} than previous day`,
+        trendText: t(delta >= 0 ? "{percent}% more than previous day" : "{percent}% less than previous day", {
+          percent: Math.abs(delta).toFixed(0),
+        }),
         trendClass: delta >= 0 ? "text-rose-500" : "text-emerald-500",
         trendIcon: delta >= 0 ? "trending_up" : "trending_down",
       };
@@ -1367,29 +2402,29 @@
 
     function computeBalanceCard() {
       if (!state.me || !state.selectedTrip) {
-        return { title: "Settled Up", copy: "You are all clear with the group", icon: "verified", cardClass: "bg-sky-600 shadow-sky-200" };
+        return { title: t("Settled Up"), copy: t("You are all clear with the group"), icon: "verified", cardClass: "bg-sky-600 shadow-sky-200" };
       }
       const balance = computeBalances()[state.me.id] || 0;
       const base = state.selectedTrip.base_currency;
       if (Math.abs(balance) < 0.01) {
         return {
-          title: "Settled Up",
-          copy: "You are all clear with the group",
+          title: t("Settled Up"),
+          copy: t("You are all clear with the group"),
           icon: "verified",
           cardClass: "bg-sky-600 shadow-sky-200",
         };
       }
       if (balance > 0) {
         return {
-          title: "You Are Owed",
-          copy: `${formatMoney(base, balance)} should flow back to you`,
+          title: t("You Are Owed"),
+          copy: t("{amount} should flow back to you", { amount: formatMoney(base, balance) }),
           icon: "north_east",
           cardClass: "bg-emerald-600 shadow-emerald-200",
         };
       }
       return {
-        title: "You Owe",
-        copy: `${formatMoney(base, Math.abs(balance))} is still outstanding`,
+        title: t("You Owe"),
+        copy: t("{amount} is still outstanding", { amount: formatMoney(base, Math.abs(balance)) }),
         icon: "south_east",
         cardClass: "bg-amber-500 shadow-amber-200",
       };
@@ -1399,7 +2434,7 @@
       if (!state.members.length) {
         el("member-strip").innerHTML = `
           <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-500">
-            Members will appear here after selecting a trip.
+            ${escapeHtml(t("Members will appear here after selecting a trip."))}
           </div>
         `;
         return;
@@ -1416,7 +2451,7 @@
                 </div>
                 <div class="min-w-0">
                   <p class="truncate font-bold text-slate-900">${escapeHtml(member.display_name)}</p>
-                  <p class="text-xs font-medium text-slate-500">${mine ? "You" : member.role}</p>
+                  <p class="text-xs font-medium text-slate-500">${escapeHtml(mine ? t("You") : t(member.role === "owner" ? "Owner" : "Member"))}</p>
                 </div>
               </div>
             </div>
@@ -1456,7 +2491,7 @@
       if (!state.expenses.length) {
         el("expense-groups").innerHTML = `
           <div class="rounded-[1.6rem] border border-dashed border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
-            <p class="text-sm font-semibold text-slate-500">No expenses yet. Add the first transaction from the Add screen.</p>
+            <p class="text-sm font-semibold text-slate-500">${escapeHtml(t("No expenses yet. Add the first transaction from the Add screen."))}</p>
           </div>
         `;
         return;
@@ -1483,7 +2518,7 @@
       const meta = categoryMeta(expense.category);
       const myShareOriginal = computeShareOriginal(expense, state.me?.id);
       const isMine = myShareOriginal > 0.000001;
-      const title = expense.title || expense.category || "Untitled expense";
+      const title = expense.title || expense.category || t("Untitled expense");
       return `
         <button
           type="button"
@@ -1500,14 +2535,20 @@
                 ${expenseParticipantAvatars(expense)}
               </div>
               <span class="text-[11px] font-medium text-slate-500">
-                ${escapeHtml(categoryMeta(expense.category).label)} &middot; Paid by ${escapeHtml(userNameById(expense.paid_by_user_id))} &middot; ${(expense.split_with_user_ids || []).length} people
+                ${escapeHtml(t("{category} · Paid by {name} · {count} people", {
+                  category: categoryMeta(expense.category).label,
+                  name: userNameById(expense.paid_by_user_id),
+                  count: (expense.split_with_user_ids || []).length,
+                }))}
               </span>
             </div>
           </div>
           <div class="text-right">
             <div class="text-sm font-bold text-slate-900">${escapeHtml(formatMoney(expense.currency, expense.amount))}</div>
             <div class="mt-0.5 text-[11px] font-bold ${isMine ? "text-sky-600" : "text-slate-400"}">
-              ${isMine ? `Your Share: ${escapeHtml(formatMoney(expense.currency, myShareOriginal))}` : "Not your share"}
+              ${isMine
+                ? escapeHtml(t("Your Share: {amount}", { amount: formatMoney(expense.currency, myShareOriginal) }))
+                : escapeHtml(t("Not your share"))}
             </div>
           </div>
         </button>
@@ -1566,7 +2607,7 @@
       if (!state.members.length) {
         el("split-member-list").innerHTML = `
           <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-500">
-            Trip members will appear here after selecting a trip.
+            ${escapeHtml(t("Trip members will appear here after selecting a trip."))}
           </div>
         `;
         return;
@@ -1584,7 +2625,7 @@
                 </div>
                 <div>
                   <p class="text-sm font-bold text-slate-900">${escapeHtml(member.display_name)}</p>
-                  <p class="text-xs text-slate-500">${mine ? "You" : "Member"}</p>
+                  <p class="text-xs text-slate-500">${escapeHtml(mine ? t("You") : t("Member"))}</p>
                 </div>
               </div>
               <input class="split-member h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500" type="checkbox" value="${member.user_id}" checked />
@@ -1700,7 +2741,7 @@
       });
 
       if (manualSum > totalCents) {
-        warning.textContent = "Typed amounts exceed the expense total. Reduce the custom values.";
+        warning.textContent = t("Typed amounts exceed the expense total. Reduce the custom values.");
         warning.classList.remove("hidden");
       } else {
         warning.classList.add("hidden");
@@ -1731,14 +2772,14 @@
       const amount = Number(el("expense-amount").value || 0);
 
       if (!trip) {
-        el("conversion-label").textContent = "Base Conversion";
-        el("conversion-preview").textContent = "Select a trip to calculate conversion";
-        el("fx-hint").textContent = "Built-in rates are used automatically when the currency pair is known.";
+        el("conversion-label").textContent = t("Base Conversion");
+        el("conversion-preview").textContent = t("Select a trip to calculate conversion");
+        el("fx-hint").textContent = t("Built-in rates are used automatically when the currency pair is known.");
         return;
       }
 
       const baseCurrency = trip.base_currency;
-      el("conversion-label").textContent = `Base Conversion (${baseCurrency})`;
+      el("conversion-label").textContent = t("Base Conversion ({currency})", { currency: baseCurrency });
 
       let rate = null;
       if (source === baseCurrency) {
@@ -1750,34 +2791,37 @@
       }
 
       if (!source) {
-        el("conversion-preview").textContent = "Choose a source currency";
-        el("fx-hint").textContent = "Enter the currency you spent in.";
+        el("conversion-preview").textContent = t("Choose a source currency");
+        el("fx-hint").textContent = t("Enter the currency you spent in.");
         return;
       }
 
       if (!Number.isFinite(rate) || rate <= 0) {
-        el("conversion-preview").textContent = "Manual FX rate required";
-        el("fx-hint").textContent = `No built-in rate for ${source} to ${baseCurrency}. Switch to manual and enter one.`;
+        el("conversion-preview").textContent = t("Manual FX rate required");
+        el("fx-hint").textContent = t("No built-in rate for {source} to {target}. Switch to manual and enter one.", {
+          source,
+          target: baseCurrency,
+        });
         return;
       }
 
       el("conversion-preview").textContent = amount > 0 ? `\u2248 ${formatMoney(baseCurrency, amount * rate)}` : `1 ${source} = ${formatMoney(baseCurrency, rate)}`;
       el("fx-hint").textContent = state.fxMode === "manual"
-        ? `Manual rate in use: 1 ${source} = ${formatMoney(baseCurrency, rate)}`
-        : `Auto rate loaded: 1 ${source} = ${formatMoney(baseCurrency, rate)}`;
+        ? t("Manual rate in use: 1 {source} = {amount}", { source, amount: formatMoney(baseCurrency, rate) })
+        : t("Auto rate loaded: 1 {source} = {amount}", { source, amount: formatMoney(baseCurrency, rate) });
     }
 
     function buildCreateExpensePayload() {
-      if (!state.selectedTrip) throw new Error("Select a trip first.");
+      if (!state.selectedTrip) throw new Error(t("Select a trip first."));
       const amount = Number(el("expense-amount").value);
-      if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter a valid amount.");
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error(t("Enter a valid amount."));
 
       const currency = getCurrencyValue("expense-currency", "expense-currency-custom");
-      if (!currency) throw new Error("Choose the expense currency.");
+      if (!currency) throw new Error(t("Choose the expense currency."));
 
       const paidBy = el("expense-paid-by").value || state.me?.id;
       const splitWithUserIds = getSelectedAddMembers().map((member) => member.user_id);
-      if (!splitWithUserIds.length) throw new Error("Select at least one member for the split.");
+      if (!splitWithUserIds.length) throw new Error(t("Select at least one member for the split."));
 
       const payload = {
         amount: String(amount),
@@ -1800,11 +2844,14 @@
       if (currency !== state.selectedTrip.base_currency) {
         if (state.fxMode === "manual") {
           const fx = Number(el("expense-fx").value);
-          if (!Number.isFinite(fx) || fx <= 0) throw new Error("Enter a valid manual FX rate.");
+          if (!Number.isFinite(fx) || fx <= 0) throw new Error(t("Enter a valid manual FX rate."));
           payload.fx_rate_to_target = String(fx);
           payload.fx_rate_to_base = String(fx);
         } else if (!latestFx(currency, state.selectedTrip.base_currency)) {
-          throw new Error(`No built-in rate for ${currency} to ${state.selectedTrip.base_currency}. Switch to manual.`);
+          throw new Error(t("No built-in rate for {source} to {target}. Switch to manual.", {
+            source: currency,
+            target: state.selectedTrip.base_currency,
+          }));
         }
       }
 
@@ -1812,15 +2859,22 @@
     }
 
     async function createExpense() {
+      if (!beginButtonBusy("create-expense-button")) return;
       try {
         const payload = buildCreateExpensePayload();
         await api(`/trips/${state.selectedTrip.id}/expenses`, "POST", payload);
-        showToast("Expense created.", "success");
+        showToast(t("Expense created."), "success");
         resetExpenseForm();
-        await loadCurrentTripContext();
         setScreen("trip");
+        try {
+          await loadCurrentTripContext();
+        } catch (error) {
+          showToast(error.message || t("Unable to refresh trip."), "error");
+        }
       } catch (error) {
-        showToast(error.message || "Unable to create expense.", "error");
+        showToast(error.message || t("Unable to create expense."), "error");
+      } finally {
+        endButtonBusy("create-expense-button");
       }
     }
 
@@ -1847,11 +2901,40 @@
         enabled ? "bg-white text-slate-900 hover:scale-[1.02]" : "bg-white/15 text-slate-300 cursor-not-allowed"
       }`;
       if (!state.selectedTrip) {
-        el("invite-result").textContent = "No invite generated yet.";
+        el("invite-result").textContent = t("No invite generated yet.");
       } else if (!isOwner) {
-        el("invite-result").textContent = "Only the trip owner can generate invites.";
-      } else if (!el("invite-result").innerHTML.includes("Code:")) {
-        el("invite-result").textContent = "No invite generated yet.";
+        el("invite-result").textContent = t("Only the trip owner can generate invites.");
+      } else if (state.latestInvite) {
+        const inviteLink = buildInviteLink(state.latestInvite.invite_code);
+        el("invite-result").innerHTML = `
+          <div class="font-bold">${escapeHtml(t("Code: {code}", { code: state.latestInvite.invite_code }))}</div>
+          <div class="mt-1 text-xs text-slate-300">${escapeHtml(t("Expires: {date}", {
+            date: state.latestInvite.expires_at
+              ? new Intl.DateTimeFormat(locale(), { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.latestInvite.expires_at))
+              : t("Never"),
+          }))}</div>
+          <label class="mt-4 block text-xs font-bold uppercase tracking-[0.18em] text-sky-200" for="invite-link-value">${escapeHtml(t("Invite link"))}</label>
+          <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              id="invite-link-value"
+              class="min-w-0 flex-1 rounded-xl border-none bg-white/10 px-3 py-2 text-xs font-medium text-white ring-1 ring-white/15 focus:ring-2 focus:ring-sky-400"
+              readonly
+              value="${escapeHtml(inviteLink)}"
+            />
+            <button
+              type="button"
+              class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-extrabold text-slate-900 transition-transform hover:scale-[1.02]"
+              aria-label="${escapeHtml(t("Copy invite link"))}"
+              onclick="copyInviteLink()"
+            >
+              <span class="material-symbols-outlined text-base">content_copy</span>
+              ${escapeHtml(t("Copy link"))}
+            </button>
+          </div>
+          <p class="mt-2 text-xs leading-5 text-slate-300">${escapeHtml(t("Share this link. Recipients can log in or create an account before joining."))}</p>
+        `;
+      } else {
+        el("invite-result").textContent = t("No invite generated yet.");
       }
     }
 
@@ -1859,11 +2942,11 @@
       if (!state.selectedTrip || !state.summary) {
         el("analytics-total").textContent = "$0";
         document.querySelector(".chart-donut").style.background = "conic-gradient(#e2e8f0 0deg 360deg)";
-        el("category-legend").innerHTML = `<p class="text-sm font-medium text-slate-500">Select a trip to load analytics.</p>`;
-        el("high-impact-list").innerHTML = `<p class="text-sm font-medium text-slate-500">No category data yet.</p>`;
+        el("category-legend").innerHTML = `<p class="text-sm font-medium text-slate-500">${escapeHtml(t("Select a trip to load analytics."))}</p>`;
+        el("high-impact-list").innerHTML = `<p class="text-sm font-medium text-slate-500">${escapeHtml(t("No category data yet."))}</p>`;
         el("member-bars").innerHTML = "";
         el("final-member-bars").innerHTML = "";
-        el("settle-up-list").innerHTML = `<div class="rounded-xl border border-white/10 bg-white/10 px-4 py-4 text-sm text-slate-100">Settlement suggestions appear here after expenses are added.</div>`;
+        el("settle-up-list").innerHTML = `<div class="rounded-xl border border-white/10 bg-white/10 px-4 py-4 text-sm text-slate-100">${escapeHtml(t("Settlement suggestions appear here after expenses are added."))}</div>`;
         return;
       }
 
@@ -1881,12 +2964,12 @@
       renderMemberBars("member-bars", members, base, {
         fillClass: "bg-sky-500",
         hoverClass: "group-hover:bg-sky-400",
-        emptyMessage: "No member contribution data yet.",
+        emptyMessage: t("No member contribution data yet."),
       });
       renderMemberBars("final-member-bars", finalMembers, base, {
         fillClass: "bg-emerald-500",
         hoverClass: "group-hover:bg-emerald-400",
-        emptyMessage: "No final spend data yet.",
+        emptyMessage: t("No final spend data yet."),
       });
       renderSettlementPlan(base);
     }
@@ -1894,7 +2977,7 @@
     function renderCategoryDonut(categories, total, base) {
       if (!categories.length || total <= 0) {
         document.querySelector(".chart-donut").style.background = "conic-gradient(#e2e8f0 0deg 360deg)";
-        el("category-legend").innerHTML = `<p class="text-sm font-medium text-slate-500">No category data yet.</p>`;
+        el("category-legend").innerHTML = `<p class="text-sm font-medium text-slate-500">${escapeHtml(t("No category data yet."))}</p>`;
         return;
       }
 
@@ -1928,7 +3011,7 @@
 
     function renderHighImpact(categories, total, base) {
       if (!categories.length || total <= 0) {
-        el("high-impact-list").innerHTML = `<p class="text-sm font-medium text-slate-500">No category data yet.</p>`;
+        el("high-impact-list").innerHTML = `<p class="text-sm font-medium text-slate-500">${escapeHtml(t("No category data yet."))}</p>`;
         return;
       }
       const maxValue = Number(categories[0][1] || 1);
@@ -1961,7 +3044,7 @@
     function renderMemberBars(containerId, members, base, options = {}) {
       const fillClass = options.fillClass || "bg-sky-500";
       const hoverClass = options.hoverClass || "group-hover:bg-sky-400";
-      const emptyMessage = options.emptyMessage || "No member data yet.";
+      const emptyMessage = options.emptyMessage || t("No member data yet.");
       if (!members.length) {
         el(containerId).innerHTML = `<p class="text-sm font-medium text-slate-500">${escapeHtml(emptyMessage)}</p>`;
         return;
@@ -2031,7 +3114,7 @@
       if (!plan.length) {
         el("settle-up-list").innerHTML = `
           <div class="rounded-xl border border-white/10 bg-white/10 px-4 py-4 text-sm text-slate-100">
-            Everyone is effectively settled. Add more expenses to generate a debt plan.
+            ${escapeHtml(t("Everyone is effectively settled. Add more expenses to generate a debt plan."))}
           </div>
         `;
         return;
@@ -2046,16 +3129,23 @@
                 ${escapeHtml(initials(fromName))}
               </div>
               <div>
-                <p class="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">${escapeHtml(fromName)} owes ${escapeHtml(toName)}</p>
+                <p class="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">${escapeHtml(t("{from} owes {to}", { from: fromName, to: toName }))}</p>
                 <p class="text-lg font-black">${escapeHtml(formatMoney(base, step.amount))}</p>
               </div>
             </div>
-            <button type="button" class="rounded-lg bg-white p-2 text-sky-700 shadow-lg" onclick="showToast('${escapeHtml(fromName)} should settle with ${escapeHtml(toName)}.', 'info')">
+            <button type="button" class="rounded-lg bg-white p-2 text-sky-700 shadow-lg" onclick="showSettlementToast('${step.from}', '${step.to}')">
               <span class="material-symbols-outlined">send</span>
             </button>
           </div>
         `;
       }).join("");
+    }
+
+    function showSettlementToast(fromId, toId) {
+      showToast(t("{from} should settle with {to}.", {
+        from: userNameById(fromId),
+        to: userNameById(toId),
+      }), "info");
     }
 
     function renderDetailSplitFields(selectedIds = null) {
@@ -2075,6 +3165,10 @@
       if (!expense) return;
 
       state.selectedExpenseId = expenseId;
+      if (state.expenseModalCloseTimer) {
+        clearTimeout(state.expenseModalCloseTimer);
+        state.expenseModalCloseTimer = null;
+      }
       el("detail-title").value = expense.title || "";
       el("detail-category").value = expense.category || "";
       el("detail-amount").value = expense.amount;
@@ -2088,16 +3182,23 @@
       const modal = el("expense-modal");
       modal.classList.remove("hidden", "pointer-events-none");
       modal.querySelector(".modal-transition").classList.remove("translate-y-6", "opacity-0");
+      syncBodyScrollLock();
     }
 
     function closeExpenseModal() {
       const modal = el("expense-modal");
       modal.classList.add("pointer-events-none");
       modal.querySelector(".modal-transition").classList.add("translate-y-6", "opacity-0");
-      setTimeout(() => modal.classList.add("hidden"), 180);
+      if (state.expenseModalCloseTimer) clearTimeout(state.expenseModalCloseTimer);
+      state.expenseModalCloseTimer = setTimeout(() => {
+        modal.classList.add("hidden");
+        state.expenseModalCloseTimer = null;
+        syncBodyScrollLock();
+      }, 180);
     }
 
     async function saveExpenseDetail() {
+      if (!beginButtonBusy("detail-save-button")) return;
       try {
         if (!state.selectedTrip || !state.selectedExpenseId) return;
         const paidBy = el("detail-paid-by").value;
@@ -2117,16 +3218,22 @@
         }
         await api(`/trips/${state.selectedTrip.id}/expenses/${state.selectedExpenseId}`, "PATCH", payload);
         closeExpenseModal();
-        showToast("Expense updated.", "success");
-        await loadCurrentTripContext();
+        showToast(t("Expense updated."), "success");
+        try {
+          await loadCurrentTripContext();
+        } catch (error) {
+          showToast(error.message || t("Unable to refresh trip."), "error");
+        }
       } catch (error) {
-        showToast(error.message || "Unable to update expense.", "error");
+        showToast(error.message || t("Unable to update expense."), "error");
+      } finally {
+        endButtonBusy("detail-save-button");
       }
     }
 
     function exportReport() {
       if (!state.selectedTrip || !state.summary) {
-        showToast("Select a trip first.", "error");
+        showToast(t("Select a trip first."), "error");
         return;
       }
       const payload = {
@@ -2147,30 +3254,43 @@
       setToken("");
       toggleDrawer(false);
       setAuthMode("login");
-      showToast("Logged out.", "info");
+      restoreRememberedCredentials();
+      showToast(t("Logged out."), "info");
     }
 
     async function initializeApp() {
       try {
         if (!state.token) {
           setAuthMode("login");
+          renderPendingInviteBanner();
           return;
         }
         state.me = await api("/me");
         renderHeader();
-        await loadTrips();
+        if (state.pendingInviteCode) {
+          await acceptPendingInvite();
+        } else {
+          await loadTrips();
+        }
       } catch (error) {
-        setToken("");
-        showAuthFeedback("Session expired. Please log in again.", "error");
+        if (error.status === 401) {
+          setToken("");
+          renderPendingInviteBanner();
+          showAuthFeedback(t("Session expired. Please log in again."), "error");
+        } else {
+          renderAll();
+          showToast(error.message || t("Unable to refresh trips."), "error");
+        }
       }
     }
 
-    function init() {
+    async function init() {
       renderCurrencyOptions("trip-base", "USD");
       toggleCurrencyCustomInput("trip-base", "trip-base-custom");
       renderCurrencyOptions("expense-currency", "USD");
       toggleCurrencyCustomInput("expense-currency", "expense-currency-custom");
       setAuthMode("login");
+      restoreRememberedCredentials();
       setAddSplitMode("equal");
       setFxMode("auto");
       renderAddCategoryGrid();
@@ -2181,7 +3301,9 @@
       el("expense-fx").addEventListener("input", updateFxPreview);
       el("expense-currency-custom").addEventListener("input", updateFxPreview);
       setToken(state.token);
-      initializeApp();
+      setLanguage(state.language);
+      await loadPendingInvitePreview();
+      await initializeApp();
     }
 
     init();
