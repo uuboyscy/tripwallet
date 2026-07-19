@@ -48,8 +48,15 @@ def test_trip_flow_and_permissions() -> None:
     assert invite_resp.status_code == 200
 
     code = invite_resp.json()["invite_code"]
+    preview_resp = client.get(f"/invites/{code}")
+    assert preview_resp.status_code == 200
+    assert preview_resp.json()["trip_id"] == trip_id
+    assert preview_resp.json()["trip_name"] == "Tokyo"
+    assert preview_resp.json()["base_currency"] == "JPY"
+
     join_resp = client.post("/trips/join", headers=auth_header(member_token), json={"invite_code": code})
     assert join_resp.status_code == 201
+    assert join_resp.json() == {"status": "joined", "trip_id": trip_id}
 
     expense_resp = client.post(
         f"/trips/{trip_id}/expenses",
@@ -122,8 +129,51 @@ def test_trip_flow_and_permissions() -> None:
 def test_ui_page_available() -> None:
     response = client.get('/ui')
     assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store, no-cache, must-revalidate"
+    assert response.headers["pragma"] == "no-cache"
     assert 'TripWallet' in response.text
     assert 'Quick Access' in response.text
+    assert 'class="language-select' in response.text
+    assert '<option value="en">English</option>' in response.text
+    assert '<option value="zh-TW">繁體中文</option>' in response.text
+    assert '<option value="ja">日本語</option>' in response.text
+    assert 'id="remember-password"' in response.text
+    assert 'Remember password' in response.text
+    assert 'tripwallet_remembered_credentials' in response.text
+    assert 'id="pending-invite-banner"' in response.text
+    assert 'function buildInviteLink' in response.text
+    assert 'Copy invite link' in response.text
+    assert 'id="trip-loading-banner"' in response.text
+    assert 'const API_TIMEOUT_MS = 15000' in response.text
+    assert 'const controller = new AbortController()' in response.text
+    assert 'state.tripContextRequestId' in response.text
+    assert 'state.tripSwitchRollback' in response.text
+    assert 'function refreshCurrentTripContext' in response.text
+    assert 'onclick="refreshTrips()"' in response.text
+    assert 'id="header-trip-select"' in response.text
+    assert 'aria-label="Switch trip"' in response.text
+    assert 'onchange="selectTrip(this.value)"' in response.text
+    assert 'id="trip-list" class="space-y-3"' in response.text
+
+
+def test_trip_list_returns_every_trip_for_the_user() -> None:
+    token = signup("multiple-trips@example.com", "Multiple Trips")
+
+    for name, currency in (("Taipei", "TWD"), ("Tokyo", "JPY"), ("Paris", "EUR")):
+        response = client.post(
+            "/trips",
+            headers=auth_header(token),
+            json={"name": name, "base_currency": currency},
+        )
+        assert response.status_code == 200
+
+    response = client.get("/trips", headers=auth_header(token))
+    assert response.status_code == 200
+    assert [(trip["name"], trip["base_currency"]) for trip in response.json()] == [
+        ("Taipei", "TWD"),
+        ("Tokyo", "JPY"),
+        ("Paris", "EUR"),
+    ]
 
 
 def test_expense_uses_latest_fx_and_target_currency() -> None:
