@@ -1,8 +1,10 @@
 import os
+import sqlite3
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 test_data_directory = tempfile.TemporaryDirectory()
@@ -43,7 +45,7 @@ def test_trip_flow_and_permissions() -> None:
     invite_resp = client.post(
         f"/trips/{trip_id}/invite",
         headers=auth_header(owner_token),
-        json={"expires_in_hours": 24},
+        json={"invited_name": "Trip Buddy"},
     )
     assert invite_resp.status_code == 200
 
@@ -53,10 +55,19 @@ def test_trip_flow_and_permissions() -> None:
     assert preview_resp.json()["trip_id"] == trip_id
     assert preview_resp.json()["trip_name"] == "Tokyo"
     assert preview_resp.json()["base_currency"] == "JPY"
+    assert preview_resp.json()["invited_name"] == "Trip Buddy"
 
     join_resp = client.post("/trips/join", headers=auth_header(member_token), json={"invite_code": code})
     assert join_resp.status_code == 201
     assert join_resp.json() == {"status": "joined", "trip_id": trip_id}
+
+    member_list = client.get(f"/trips/{trip_id}/members", headers=auth_header(owner_token))
+    joined_member = next(member for member in member_list.json() if member["role"] == "member")
+    assert joined_member["nickname_in_trip"] == "Trip Buddy"
+
+    second_use = client.post("/trips/join", headers=auth_header(owner_token), json={"invite_code": code})
+    assert second_use.status_code == 400
+    assert second_use.json()["detail"] == "Invite already used"
 
     expense_resp = client.post(
         f"/trips/{trip_id}/expenses",
@@ -143,12 +154,23 @@ def test_ui_page_available() -> None:
     assert 'id="pending-invite-banner"' in response.text
     assert 'function buildInviteLink' in response.text
     assert 'Copy invite link' in response.text
+    assert 'id="invite-name"' in response.text
+    assert 'id="invite-hours"' not in response.text
+    assert 'id="pending-invite-trip"' in response.text
+    assert 'id="pending-invite-person"' in response.text
+    assert 'id="create-date-range-button"' in response.text
+    assert 'function chooseRangeDate' in response.text
+    assert 'id="trip-edit-modal"' in response.text
+    assert 'function saveTripChanges' in response.text
     assert 'id="trip-loading-banner"' in response.text
     assert 'const API_TIMEOUT_MS = 15000' in response.text
     assert 'const controller = new AbortController()' in response.text
     assert 'state.tripContextRequestId' in response.text
     assert 'state.tripSwitchRollback' in response.text
     assert 'function refreshCurrentTripContext' in response.text
+    assert 'let invitesUnavailable = false' in response.text
+    assert 'Invite management is optional context.' in response.text
+    assert 'Trip loaded, but invite tools are temporarily unavailable.' in response.text
     assert 'onclick="refreshTrips()"' in response.text
     assert 'id="header-trip-select"' in response.text
     assert 'aria-label="Switch trip"' in response.text
@@ -236,3 +258,153 @@ def test_data_is_persisted_in_sqlite() -> None:
     assert User.model_validate_json(user_data).display_name == "Persistent User"
     assert trip_data is not None
     assert Trip.model_validate_json(trip_data).name == "Persistent Trip"
+
+
+def test_trip_validation_and_parameterized_storage() -> None:
+    token = signup("validation@example.com", "Validator")
+
+    for payload in (
+        {"name": "", "base_currency": "TWD"},
+        {"name": "   ", "base_currency": "TWD"},
+        {"name": "Bad\nName", "base_currency": "TWD"},
+        {"name": "Bad <script>", "base_currency": "TWD"},
+        {"name": "Backwards", "base_currency": "TWD", "start_date": "2026-07-20", "end_date": "2026-07-19"},
+        {"name": "Missing end", "base_currency": "TWD", "start_date": "2026-07-20"},
+        {"name": "Bad currency", "base_currency": "TW$"},
+    ):
+        response = client.post("/trips", headers=auth_header(token), json=payload)
+        assert response.status_code == 422
+
+    sql_like_name = "Taipei'); DROP TABLE users;--"
+    response = client.post(
+        "/trips",
+        headers=auth_header(token),
+        json={
+            "name": sql_like_name,
+            "base_currency": "twd",
+            "start_date": "2026-07-20",
+            "end_date": "2026-07-20",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["name"] == sql_like_name
+    assert response.json()["base_currency"] == "TWD"
+    assert client.get("/me", headers=auth_header(token)).status_code == 200
+
+    reopened_store = SQLiteStore(DATABASE_PATH)
+    with pytest.raises(sqlite3.IntegrityError):
+        with reopened_store.connect() as connection:
+            connection.execute(
+                """
+                UPDATE trips
+                SET data = json_set(data, '$.start_date', ?, '$.end_date', ?)
+                WHERE id = ?
+                """,
+                ("2026-07-22", "2026-07-21", response.json()["id"]),
+            )
+
+
+def test_owner_can_edit_trip_and_change_base_currency() -> None:
+    owner_token = signup("trip-editor@example.com", "Trip Editor")
+    member_token = signup("trip-editor-member@example.com", "Other Member")
+    trip_response = client.post(
+        "/trips",
+        headers=auth_header(owner_token),
+        json={
+            "name": "Old name",
+            "base_currency": "TWD",
+            "start_date": "2026-08-01",
+            "end_date": "2026-08-01",
+        },
+    )
+    trip_id = trip_response.json()["id"]
+
+    expense_response = client.post(
+        f"/trips/{trip_id}/expenses",
+        headers=auth_header(owner_token),
+        json={
+            "amount": "10",
+            "currency": "USD",
+            "category": "food",
+            "expense_time": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    assert expense_response.status_code == 201
+
+    forbidden = client.patch(
+        f"/trips/{trip_id}",
+        headers=auth_header(member_token),
+        json={"name": "Not allowed"},
+    )
+    assert forbidden.status_code == 403
+
+    invalid_range = client.patch(
+        f"/trips/{trip_id}",
+        headers=auth_header(owner_token),
+        json={"start_date": "2026-08-03", "end_date": "2026-08-02"},
+    )
+    assert invalid_range.status_code == 422
+
+    updated = client.patch(
+        f"/trips/{trip_id}",
+        headers=auth_header(owner_token),
+        json={
+            "name": "New name",
+            "base_currency": "JPY",
+            "start_date": "2026-08-02",
+            "end_date": "2026-08-04",
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["name"] == "New name"
+    assert updated.json()["base_currency"] == "JPY"
+    assert updated.json()["start_date"] == "2026-08-02"
+    assert updated.json()["end_date"] == "2026-08-04"
+
+    expenses = client.get(f"/trips/{trip_id}/expenses", headers=auth_header(owner_token)).json()
+    assert expenses[0]["fx_rate_to_base"] == "149.2537313432835820895522388"
+    assert expenses[0]["amount_in_base"] == "1492.537313432835820895522388"
+
+
+def test_one_named_single_use_link_per_invitee() -> None:
+    owner_token = signup("invite-owner@example.com", "Invite Owner")
+    guest_token = signup("invite-guest@example.com", "Account Name")
+    other_token = signup("invite-other@example.com", "Other Account")
+    trip = client.post(
+        "/trips",
+        headers=auth_header(owner_token),
+        json={"name": "Named invite", "base_currency": "USD"},
+    ).json()
+
+    first = client.post(
+        f"/trips/{trip['id']}/invite",
+        headers=auth_header(owner_token),
+        json={"invited_name": "Alex"},
+    )
+    duplicate = client.post(
+        f"/trips/{trip['id']}/invite",
+        headers=auth_header(owner_token),
+        json={"invited_name": "  Alex  "},
+    )
+    assert first.status_code == duplicate.status_code == 200
+    assert first.json()["invite_code"] == duplicate.json()["invite_code"]
+
+    code = first.json()["invite_code"]
+    joined = client.post("/trips/join", headers=auth_header(guest_token), json={"invite_code": code})
+    assert joined.status_code == 201
+
+    reused = client.post("/trips/join", headers=auth_header(other_token), json={"invite_code": code})
+    assert reused.status_code == 400
+    assert reused.json()["detail"] == "Invite already used"
+
+    recreated = client.post(
+        f"/trips/{trip['id']}/invite",
+        headers=auth_header(owner_token),
+        json={"invited_name": "alex"},
+    )
+    assert recreated.status_code == 409
+
+    invites = client.get(f"/trips/{trip['id']}/invites", headers=auth_header(owner_token))
+    assert invites.status_code == 200
+    assert invites.json()[0]["invited_name"] == "Alex"
+    assert invites.json()[0]["is_claimed"] is True

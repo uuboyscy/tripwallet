@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import secrets
 import sqlite3
+import unicodedata
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -15,7 +17,7 @@ from uuid import UUID, uuid4
 import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from .storage import SQLiteStore
 
@@ -96,8 +98,11 @@ class TripInvite(BaseModel):
     id: UUID
     trip_id: UUID
     invite_code: str
-    expires_at: datetime | None = None
+    invited_name: str
+    invited_name_key: str
     is_active: bool = True
+    claimed_by_user_id: UUID | None = None
+    claimed_at: datetime | None = None
     created_at: datetime
     created_by_user_id: UUID
 
@@ -127,6 +132,33 @@ class Expense(BaseModel):
 
 
 # request/response schemas
+def clean_label(value: str, field_name: str) -> str:
+    cleaned = unicodedata.normalize("NFKC", value).strip()
+    if not cleaned:
+        raise ValueError(f"{field_name} cannot be blank")
+    if len(cleaned) > 100:
+        raise ValueError(f"{field_name} must be 100 characters or fewer")
+    if any(ord(character) < 32 or ord(character) == 127 for character in cleaned):
+        raise ValueError(f"{field_name} contains unsupported control characters")
+    if "<" in cleaned or ">" in cleaned:
+        raise ValueError(f"{field_name} cannot contain angle brackets")
+    return cleaned
+
+
+def clean_currency(value: str) -> str:
+    normalized = normalize_currency(value)
+    if not re.fullmatch(r"[A-Z]{2,8}", normalized):
+        raise ValueError("currency must contain 2 to 8 letters")
+    return normalized
+
+
+def validate_trip_dates(start_date: date | None, end_date: date | None) -> None:
+    if (start_date is None) != (end_date is None):
+        raise ValueError("start_date and end_date must be provided together")
+    if start_date is not None and end_date is not None and start_date > end_date:
+        raise ValueError("start_date cannot be later than end_date")
+
+
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
@@ -150,10 +182,56 @@ class UserResponse(BaseModel):
 
 
 class CreateTripRequest(BaseModel):
-    name: str
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=100)
     start_date: date | None = None
     end_date: date | None = None
     base_currency: str = Field(min_length=2, max_length=8)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return clean_label(value, "name")
+
+    @field_validator("base_currency")
+    @classmethod
+    def validate_currency(cls, value: str) -> str:
+        return clean_currency(value)
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "CreateTripRequest":
+        validate_trip_dates(self.start_date, self.end_date)
+        return self
+
+
+class UpdateTripRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    base_currency: str | None = Field(default=None, min_length=2, max_length=8)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None) -> str | None:
+        return clean_label(value, "name") if value is not None else None
+
+    @field_validator("base_currency")
+    @classmethod
+    def validate_currency(cls, value: str | None) -> str | None:
+        return clean_currency(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def require_an_update(self) -> "UpdateTripRequest":
+        if not self.model_fields_set:
+            raise ValueError("at least one trip field is required")
+        if "name" in self.model_fields_set and self.name is None:
+            raise ValueError("name cannot be null")
+        if "base_currency" in self.model_fields_set and self.base_currency is None:
+            raise ValueError("base_currency cannot be null")
+        return self
 
 
 class TripResponse(BaseModel):
@@ -167,16 +245,28 @@ class TripResponse(BaseModel):
 
 
 class JoinTripRequest(BaseModel):
-    invite_code: str
+    invite_code: str = Field(min_length=4, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
 
 
 class InviteRequest(BaseModel):
-    expires_in_hours: int | None = Field(default=24, ge=1, le=720)
+    model_config = ConfigDict(extra="forbid")
+
+    invited_name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("invited_name")
+    @classmethod
+    def validate_invited_name(cls, value: str) -> str:
+        return clean_label(value, "invited_name")
 
 
 class InviteResponse(BaseModel):
     invite_code: str
-    expires_at: datetime | None
+    invited_name: str
+    is_claimed: bool = False
+
+
+class InviteListItemResponse(InviteResponse):
+    claimed_by_user_id: UUID | None = None
 
 
 class InvitePreviewResponse(BaseModel):
@@ -184,7 +274,7 @@ class InvitePreviewResponse(BaseModel):
     trip_id: UUID
     trip_name: str
     base_currency: str
-    expires_at: datetime | None
+    invited_name: str
 
 
 class MemberResponse(BaseModel):
@@ -362,10 +452,8 @@ def load_active_invite(invite_code: str) -> TripInvite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite code not found")
 
     invite = TripInvite.model_validate_json(invite_data)
-    if not invite.is_active:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite inactive")
-    if invite.expires_at and invite.expires_at < now_utc():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite expired")
+    if not invite.is_active or invite.claimed_by_user_id is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used")
     return invite
 
 
@@ -534,28 +622,126 @@ def get_trip(trip_id: UUID, user: User = Depends(current_user)) -> TripResponse:
     return serialize_trip(trip)
 
 
+@app.patch("/trips/{trip_id}", response_model=TripResponse)
+def update_trip(
+    trip_id: UUID,
+    payload: UpdateTripRequest,
+    user: User = Depends(current_user),
+) -> TripResponse:
+    ensure_owner(trip_id, user.id)
+    trip = load_trip(trip_id)
+    if not trip:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    start_date = updates.get("start_date", trip.start_date)
+    end_date = updates.get("end_date", trip.end_date)
+    try:
+        validate_trip_dates(start_date, end_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    updated_trip = trip.model_copy(update=updates)
+    expenses = load_expenses(trip_id)
+    updated_expenses = expenses
+    if updated_trip.base_currency != trip.base_currency:
+        updated_expenses = []
+        old_to_new = latest_fx_rate(trip.base_currency, updated_trip.base_currency)
+        for expense in expenses:
+            if expense.currency == updated_trip.base_currency:
+                rate = Decimal("1")
+            else:
+                rate = latest_fx_rate(expense.currency, updated_trip.base_currency)
+                if rate is None and old_to_new is not None:
+                    rate = expense.fx_rate_to_base * old_to_new
+            if rate is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Cannot convert {expense.currency} expenses to {updated_trip.base_currency}",
+                )
+            updated_expenses.append(
+                expense.model_copy(
+                    update={
+                        "fx_rate_to_base": rate,
+                        "amount_in_base": expense.amount * rate,
+                        "updated_at": now_utc(),
+                    }
+                )
+            )
+
+    try:
+        storage.update_trip_with_expenses(updated_trip, updated_expenses)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid trip data") from exc
+    return serialize_trip(updated_trip)
+
+
 @app.post("/trips/{trip_id}/invite", response_model=InviteResponse)
 def create_invite(trip_id: UUID, payload: InviteRequest, user: User = Depends(current_user)) -> InviteResponse:
     ensure_owner(trip_id, user.id)
     if not load_trip(trip_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
 
-    code = secrets.token_urlsafe(6)
-    expires_at = None
-    if payload.expires_in_hours is not None:
-        expires_at = now_utc() + timedelta(hours=payload.expires_in_hours)
+    invited_name_key = unicodedata.normalize("NFKC", payload.invited_name).casefold()
+    existing_data = storage.get_invite_for_name(str(trip_id), invited_name_key)
+    if existing_data:
+        existing = TripInvite.model_validate_json(existing_data)
+        if existing.claimed_by_user_id is not None or not existing.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This person already used their invite link",
+            )
+        return InviteResponse(
+            invite_code=existing.invite_code,
+            invited_name=existing.invited_name,
+            is_claimed=False,
+        )
 
     invite = TripInvite(
         id=uuid4(),
         trip_id=trip_id,
-        invite_code=code,
-        expires_at=expires_at,
+        invite_code=secrets.token_urlsafe(12),
+        invited_name=payload.invited_name,
+        invited_name_key=invited_name_key,
         is_active=True,
         created_at=now_utc(),
         created_by_user_id=user.id,
     )
-    storage.replace_invite(invite)
-    return InviteResponse(invite_code=code, expires_at=expires_at)
+    try:
+        storage.insert_invite(invite)
+    except sqlite3.IntegrityError:
+        concurrent_data = storage.get_invite_for_name(str(trip_id), invited_name_key)
+        if not concurrent_data:
+            raise
+        concurrent = TripInvite.model_validate_json(concurrent_data)
+        if concurrent.claimed_by_user_id is not None or not concurrent.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This person already used their invite link",
+            )
+        return InviteResponse(
+            invite_code=concurrent.invite_code,
+            invited_name=concurrent.invited_name,
+            is_claimed=False,
+        )
+    return InviteResponse(invite_code=invite.invite_code, invited_name=invite.invited_name)
+
+
+@app.get("/trips/{trip_id}/invites", response_model=list[InviteListItemResponse])
+def list_trip_invites(trip_id: UUID, user: User = Depends(current_user)) -> list[InviteListItemResponse]:
+    ensure_owner(trip_id, user.id)
+    return [
+        InviteListItemResponse(
+            invite_code=invite.invite_code,
+            invited_name=invite.invited_name,
+            is_claimed=invite.claimed_by_user_id is not None,
+            claimed_by_user_id=invite.claimed_by_user_id,
+        )
+        for invite in (
+            TripInvite.model_validate_json(data)
+            for data in storage.list_invites(str(trip_id))
+        )
+    ]
 
 
 @app.get("/invites/{invite_code}", response_model=InvitePreviewResponse)
@@ -569,7 +755,7 @@ def preview_invite(invite_code: str) -> InvitePreviewResponse:
         trip_id=trip.id,
         trip_name=trip.name,
         base_currency=trip.base_currency,
-        expires_at=invite.expires_at,
+        invited_name=invite.invited_name,
     )
 
 
@@ -583,17 +769,28 @@ def join_trip(payload: JoinTripRequest, user: User = Depends(current_user)) -> d
         return {"status": "already_joined", "trip_id": str(trip_id)}
 
     try:
-        storage.insert_member(
-            TripMember(
-                id=uuid4(),
-                trip_id=trip_id,
-                user_id=user.id,
-                role=MemberRole.member,
-                joined_at=now_utc(),
-            )
+        claimed_at = now_utc()
+        claimed_invite = invite.model_copy(
+            update={
+                "is_active": False,
+                "claimed_by_user_id": user.id,
+                "claimed_at": claimed_at,
+            }
         )
+        member = TripMember(
+            id=uuid4(),
+            trip_id=trip_id,
+            user_id=user.id,
+            role=MemberRole.member,
+            nickname_in_trip=invite.invited_name,
+            joined_at=claimed_at,
+        )
+        if not storage.claim_invite(claimed_invite, member):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Invite already used")
     except sqlite3.IntegrityError:
-        return {"status": "already_joined", "trip_id": str(trip_id)}
+        if storage.get_member(str(trip_id), str(user.id)):
+            return {"status": "already_joined", "trip_id": str(trip_id)}
+        raise
     return {"status": "joined", "trip_id": str(trip_id)}
 
 

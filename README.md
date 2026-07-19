@@ -7,7 +7,8 @@ TripWallet is a lightweight trip-based expense sharing app MVP with:
 
 ## Implemented MVP
 - Auth: `POST /auth/signup`, `POST /auth/login`, `GET /me`
-- Trips: create/list/get, invite generation, join by invite code
+- Trips: create/list/get/edit (name, dates, and base currency)
+- Invites: one named, single-use link per intended traveler; joiners inherit that in-trip name
 - Members: list and owner removal
 - Expenses: create/list/update/delete with member authorization rules
 - Analytics:
@@ -65,6 +66,9 @@ http://127.0.0.1:8080
 ## Security and behavior notes
 - Use `Authorization: Bearer <token>` for authenticated API calls.
 - Only trip members can access trip resources.
+- Only trip owners can edit trip settings or manage named invitation links.
+- Trip names are normalized and validated, date ranges must contain both dates with `start_date <= end_date`, and SQLite repeats these checks with triggers.
+- SQLite access uses bound parameters; user text is never interpolated into SQL statements.
 - Members can edit/delete only expenses they created.
 - Multi-currency rule:
   - if `currency == trip.base_currency`, `fx_rate_to_base = 1`
