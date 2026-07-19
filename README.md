@@ -22,7 +22,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run:
 
 ```bash
 uv sync
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
 ```
 
 The project pins Python 3.13 in `.python-version`; uv downloads it automatically when needed.
@@ -44,14 +44,23 @@ data/tripwallet.db
 The directory and database are created automatically. To store the database elsewhere, set an absolute or project-relative path:
 
 ```bash
-TRIPWALLET_DB_PATH=/path/to/tripwallet.db uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+TRIPWALLET_DB_PATH=/path/to/tripwallet.db uv run uvicorn app.main:app --host 127.0.0.1 --port 8080
 ```
 
 For a simple backup, stop the app and copy `data/tripwallet.db` to a safe location. The manual GitHub Action uses an ephemeral runner, so its database is deleted when the workflow ends.
 
 Open:
-- API docs: `http://127.0.0.1:8000/docs`
-- MVP UI: `http://127.0.0.1:8000/ui`
+- API docs: `http://127.0.0.1:8080/docs`
+- MVP UI: `http://127.0.0.1:8080/ui`
+
+### Cloudflare Tunnel (this Mac)
+
+The local TripWallet service listens on `127.0.0.1:8080`. Configure the
+Cloudflare Tunnel published application service URL as:
+
+```text
+http://127.0.0.1:8080
+```
 
 ## Security and behavior notes
 - Use `Authorization: Bearer <token>` for authenticated API calls.
